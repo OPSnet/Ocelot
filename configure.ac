@@ -1,11 +1,19 @@
-AC_INIT(ocelot, 1.0)
+# Ocelot Configure script
+# Generate ./configure using autoreconf (or autoconf for the brave)
+
+AC_INIT(ocelot, 1.1)
+AC_CONFIG_SRCDIR([src/ocelot.h])
+AC_CONFIG_MACRO_DIRS([m4])
+
+AC_FUNC_ERROR_AT_LINE
+AC_FUNC_FORK
+AC_CHECK_FUNCS([ftruncate memset socket strerror])
+
 AM_INIT_AUTOMAKE([1.11 no-define foreign])
 AC_PROG_CXX
-AC_CONFIG_FILES([Makefile])
-AC_LANG_PUSH([C++])
-AX_CHECK_COMPILE_FLAG([-std=c++11], [], [AC_MSG_ERROR([Compiler does not support -std=c++11])])
-AX_CHECK_COMPILE_FLAG([-fstack-protector-strong], [CXXFLAGS="-fstack-protector-strong $CXXFLAGS"])
-AC_LANG_POP([C++])
+AC_CONFIG_FILES([Makefile src/Makefile])
+AC_LANG([C++])
+AX_CXX_COMPILE_STDCXX(11, noext, mandatory)
 AX_BOOST_BASE([1.37], [], [AC_MSG_ERROR(Need boost >= 1.37)])
 AX_BOOST_IOSTREAMS
 AX_BOOST_SYSTEM

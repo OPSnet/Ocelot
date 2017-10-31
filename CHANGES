@@ -1,3 +1,6 @@
+-- 1.1 (2017-10-xx)
+..
+
 -- 1.0 (2015-01-26)
 NOTE: This version requires the following database change:
 ALTER TABLE xbt_files_users DROP PRIMARY KEY, ADD PRIMARY KEY (peer_id,fid,uid)

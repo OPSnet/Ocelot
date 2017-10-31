@@ -20,7 +20,7 @@ AC_DEFUN([EV_DEVEL],
 		[AS_HELP_STRING([--with-ev=<path>],[path containing libev header and library subdirs])],
 		[EV_lib_check="$with_ev/lib64 $with_ev/lib $with_ev/lib64/libev $with_ev/lib/libev"
 		  EV_inc_check="$with_ev/include $with_ev/include/libev"],
-		[EV_lib_check="/usr/local/libev/lib64 /usr/local/libev/lib /usr/local/lib64/libev /usr/local/lib/libev /opt/libev/lib64 /opt/libev/lib /usr/lib64/libev /usr/lib/libev /usr/local/lib64 /usr/local/lib /usr/lib64 /usr/lib"
+		[EV_lib_check="/usr/local/libev/lib64 /usr/local/libev/lib /usr/local/lib64/libev /usr/local/lib/libev /opt/libev/lib64 /opt/libev/lib /usr/lib64/libev /usr/lib/libev /usr/local/lib64 /usr/local/lib /usr/lib64 /usr/lib /usr/lib/x86_64-linux-gnu /usr/lib64/x86_64-linux-gnu"
 		  EV_inc_check="/usr/local/libev/include /usr/local/include/libev /opt/libev/include /usr/local/include/libev /usr/local/include /usr/include/libev /usr/include"])
 	AC_ARG_WITH(ev-lib,
 		[AS_HELP_STRING([--with-ev-lib=<path>],[directory path of libev library])],
@@ -132,4 +132,3 @@ AC_DEFUN([EV_DEVEL],
 	)
 	AC_LANG_POP([C++])
 ]) dnl End EV_DEVEL
-

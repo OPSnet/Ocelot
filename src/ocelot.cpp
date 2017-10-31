@@ -51,11 +51,14 @@ int main(int argc, char **argv) {
 	bool verbose = false, conf_arg = false;
 	std::string conf_file_path("./ocelot.conf");
 	for (int i = 1; i < argc; i++) {
-		if (!strcmp(argv[i], "-v")) {
+		if (strcmp(argv[i], "-v") == 0) {
 			verbose = true;
-		} else if (!strcmp(argv[i], "-c") && i < argc - 1) {
+		} else if (strcmp(argv[i], "-c") == 0 && i < argc - 1) {
 			conf_arg = true;
 			conf_file_path = argv[++i];
+		} else if(strcmp(argv[i], "-V") == 0 || strcmp(argv[i], "--version") == 0) {
+			std::cout << "Ocelot, version 1.1" << std::endl;
+			return 0;
 		} else {
 			std::cout << "Usage: " << argv[0] << " [-v] [-c configfile]" << std::endl;
 			return 0;

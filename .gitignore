@@ -1,1 +1,13 @@
+.idea/
+.vagrant/
 *.tar.*
+MakeFile.in
+/configure
+/config.*
+cmake-build-debug/
+autom4te.cache/
+*.o
+Makefile
+.deps/
+src/ocelot
+CMakeLists.txt

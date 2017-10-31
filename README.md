@@ -12,6 +12,12 @@ Ocelot is a BitTorrent tracker written in C++ for the [Gazelle](http://whatcd.gi
 
 ## Installation
 
+### Debian Jessie
+```bash
+sudo apt-get install pkg-config libev-dev libboost-all-dev
+./configure --with-boost-libdir=/usr/lib/x86_64-linux-gnu
+```
+
 The [Gazelle installation guides](https://github.com/WhatCD/Gazelle/wiki/Gazelle-installation) include instructions for installing Ocelot as a part of the Gazelle project.
 
 ### Standalone Installation
