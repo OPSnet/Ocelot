@@ -8,6 +8,7 @@
 #include <iostream>
 #include <mutex>
 #include <ctime>
+#include <spdlog/spdlog.h>
 #include "site_comm.h"
 #include "ocelot.h"
 
@@ -25,6 +26,7 @@ class worker {
 		tracker_status status;
 		bool reaper_active;
 		time_t cur_time;
+		std::shared_ptr<spdlog::logger> logger;
 
 		unsigned int announce_interval;
 		unsigned int del_reason_lifetime;

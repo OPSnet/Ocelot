@@ -4,7 +4,7 @@
 #include <boost/asio.hpp>
 #include <queue>
 #include <mutex>
-
+#include <spdlog/spdlog.h>
 #include "config.h"
 
 using boost::asio::ip::tcp;
@@ -17,6 +17,7 @@ class site_comm {
 		std::mutex expire_queue_lock;
 		std::string expire_token_buffer;
 		std::queue<std::string> token_queue;
+		std::shared_ptr<spdlog::logger> logger;
 		bool readonly;
 		bool t_active;
 		void load_config(config * conf);

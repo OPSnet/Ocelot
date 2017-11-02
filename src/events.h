@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <cstring>
+#include <spdlog/spdlog.h>
 
 // libev
 #include <ev++.h>
@@ -60,6 +61,7 @@ class connection_mother {
 		mysql * db;
 		ev::io listen_event;
 		ev::timer schedule_event;
+		std::shared_ptr<spdlog::logger> logger;
 
 	public:
 		connection_mother(config * conf, worker * worker_obj, mysql * db_obj, site_comm * sc_obj, schedule * sched_obj);

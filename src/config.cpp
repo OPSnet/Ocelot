@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <spdlog/spdlog.h>
 #include "config.h"
 #include "misc_functions.h"
 
@@ -61,6 +62,7 @@ void config::init() {
 	add("max_read_buffer", 4096u);
 	add("connection_timeout", 10u);
 	add("keepalive_timeout", 0u);
+	add("daemonize", false);
 
 	// Tracker requests
 	add("announce_interval", 1800u);
@@ -86,6 +88,10 @@ void config::init() {
 	add("site_password", "00000000000000000000000000000000");
 	add("report_password", "00000000000000000000000000000000");
 
+	// Logging
+	add("log", false);
+	add("log_path", "ocelot"); // path to where to write log + name of log (don't need to put file extension)
+
 	// Debugging
 	add("readonly", false);
 }
@@ -93,7 +99,7 @@ void config::init() {
 confval * config::get(const std::string &setting_name) {
 	const auto setting = settings.find(setting_name);
 	if (setting == settings.end()) {
-		std::cout << "WARNING: Unrecognized setting '" << setting_name << "'" << std::endl;
+		 spdlog::get("logger")->info("WARNING: Unrecognized setting '" + setting_name + "'");
 		return dummy_setting;
 	}
 	return &setting->second;
@@ -136,7 +142,7 @@ void config::reload() {
 	const std::string conf_file_path(get_str("conf_file_path"));
 	std::ifstream conf_file(conf_file_path);
 	if (conf_file.fail()) {
-		std::cout << "Config file '" << conf_file_path << "' couldn't be opened" << std::endl;
+		spdlog::get("logger")->error("Config file '" + conf_file_path + "' couldn't be opened");
 	} else {
 		init();
 		load(conf_file);

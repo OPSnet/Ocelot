@@ -1,4 +1,5 @@
 #include <iostream>
+#include <spdlog/spdlog.h>
 
 #include "ocelot.h"
 #include "config.h"
@@ -12,6 +13,7 @@ schedule::schedule(config * conf, worker * worker_obj, mysql * db_obj, site_comm
 	last_opened_connections = 0;
 	last_request_count = 0;
 	next_reap_peers = reap_peers_interval;
+	logger = spdlog::get("logger");
 }
 
 void schedule::load_config(config * conf) {
@@ -29,13 +31,13 @@ void schedule::handle(ev::timer &watcher, int events_flags) {
 	stats.connection_rate = (stats.opened_connections - last_opened_connections) / cur_schedule_interval;
 	stats.request_rate = (stats.requests - last_request_count) / cur_schedule_interval;
 	if (counter % 20 == 0) {
-		std::cout << stats.open_connections << " open, "
-		<< stats.opened_connections << " connections (" << stats.connection_rate << "/s), "
-		<< stats.requests << " requests (" << stats.request_rate << "/s)" << std::endl;
+		logger->info(std::to_string(stats.open_connections) + " open, "
+		+ std::to_string(stats.opened_connections) + " connections (" + std::to_string(stats.connection_rate) + "/s), "
+		+ std::to_string(stats.requests) + " requests (" + std::to_string(stats.request_rate) + "/s)");
 	}
 
 	if (work->get_status() == CLOSING && db->all_clear() && sc->all_clear()) {
-		std::cout << "all clear, shutting down" << std::endl;
+		logger->info("all clear, shutting down");
 		exit(0);
 	}
 

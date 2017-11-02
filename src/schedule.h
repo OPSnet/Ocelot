@@ -14,6 +14,7 @@ class schedule {
 		uint64_t last_request_count;
 		unsigned int counter;
 		int next_reap_peers;
+		std::shared_ptr<spdlog::logger> logger;
 	public:
 		schedule(config * conf, worker * worker_obj, mysql * db_obj, site_comm * sc_obj);
 		void reload_config(config * conf);

@@ -2,6 +2,7 @@
 #define OCELOT_DB_H
 #pragma GCC visibility push(default)
 #include <mysql++/mysql++.h>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <unordered_map>
 #include <queue>
@@ -36,6 +37,8 @@ class mysql {
 		std::mutex peer_queue_lock;
 		std::mutex snatch_queue_lock;
 		std::mutex token_queue_lock;
+
+		std::shared_ptr<spdlog::logger> logger;
 
 		void load_config(config * conf);
 		void load_tokens(torrent_list &torrents);

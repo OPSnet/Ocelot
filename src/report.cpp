@@ -25,27 +25,27 @@ std::string report(params_type &params, user_list &users_list, client_opts_t &cl
 		std::string up_st = up_s <= 9 ? '0' + inttostr(up_s) : inttostr(up_s);
 
 		output << "Uptime: " << up_d << " days, " << up_ht << ':' << up_mt << ':' << up_st << '\n'
-		<< stats.opened_connections << " connections opened\n"
-		<< stats.open_connections << " open connections\n"
-		<< stats.connection_rate << " connections/s\n"
-		<< stats.requests << " requests handled\n"
-		<< stats.request_rate << " requests/s\n"
-		<< stats.succ_announcements << " successful announcements\n"
-		<< (stats.announcements - stats.succ_announcements) << " failed announcements\n"
-		<< stats.scrapes << " scrapes\n"
-		<< stats.leechers << " leechers tracked\n"
-		<< stats.seeders << " seeders tracked\n"
-		<< stats.bytes_read << " bytes read\n"
-		<< stats.bytes_written << " bytes written\n";
+			   << stats.opened_connections << " connections opened\n"
+			   << stats.open_connections << " open connections\n"
+			   << stats.connection_rate << " connections/s\n"
+			   << stats.requests << " requests handled\n"
+			   << stats.request_rate << " requests/s\n"
+			   << stats.succ_announcements << " successful announcements\n"
+			   << (stats.announcements - stats.succ_announcements) << " failed announcements\n"
+			   << stats.scrapes << " scrapes\n"
+			   << stats.leechers << " leechers tracked\n"
+			   << stats.seeders << " seeders tracked\n"
+			   << stats.bytes_read << " bytes read\n"
+			   << stats.bytes_written << " bytes written\n";
 	} else if (action == "user") {
 		std::string key = params["key"];
-		if (key == "") {
+		if (key.empty()) {
 			output << "Invalid action\n";
 		} else {
 			user_list::const_iterator u = users_list.find(key);
 			if (u != users_list.end()) {
-				output << u->second->get_leeching() << " leeching\n"
-				<< u->second->get_seeding() << " seeding\n";
+				output << u->second->get_leeching() << " leeching" << std::endl
+					   << u->second->get_seeding() << " seeding" << std::endl;
 			}
 		}
 	} else {

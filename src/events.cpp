@@ -1,4 +1,5 @@
 #include <cerrno>
+#include <spdlog/spdlog.h>
 #include "ocelot.h"
 #include "config.h"
 #include "db.h"
@@ -24,6 +25,8 @@ connection_mother::connection_mother(config * conf, worker * worker_obj, mysql *
 	// Create libev timer
 	schedule_event.set<schedule, &schedule::handle>(sched);
 	schedule_event.start(sched->schedule_interval, sched->schedule_interval); // After interval, every interval
+
+	logger = spdlog::get("logger");
 }
 
 void connection_mother::load_config(config * conf) {
@@ -41,7 +44,7 @@ void connection_mother::reload_config(config * conf) {
 	unsigned int old_max_connections = max_connections;
 	load_config(conf);
 	if (old_listen_port != listen_port) {
-		std::cout << "Changing listen port from " << old_listen_port << " to " << listen_port << std::endl;
+		logger->info("Changing listen port from " + std::to_string(old_listen_port) +" to " + std::to_string(listen_port));
 		int new_listen_socket = create_listen_socket();
 		if (new_listen_socket != 0) {
 			listen_event.stop();
@@ -49,7 +52,7 @@ void connection_mother::reload_config(config * conf) {
 			close(listen_socket);
 			listen_socket = new_listen_socket;
 		} else {
-			std::cout << "Couldn't create new listen socket when reloading config" << std::endl;
+			logger->error("Couldn't create new listen socket when reloading config");
 		}
 	} else if (old_max_connections != max_connections) {
 		listen(listen_socket, max_connections);
@@ -64,7 +67,7 @@ int connection_mother::create_listen_socket() {
 	// Stop old sockets from hogging the port
 	int yes = 1;
 	if (setsockopt(new_listen_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
-		std::cout << "Could not reuse socket: " << strerror(errno) << std::endl;
+		logger->error("Could not reuse socket: " + std::string(strerror(errno)));
 		return 0;
 	}
 
@@ -76,24 +79,24 @@ int connection_mother::create_listen_socket() {
 
 	// Bind
 	if (bind(new_listen_socket, (sockaddr *) &address, sizeof(address)) == -1) {
-		std::cout << "Bind failed: " << strerror(errno) << std::endl;
+		logger->error("Bind failed: " + std::string(strerror(errno)));
 		return 0;
 	}
 
 	// Listen
 	if (listen(new_listen_socket, max_connections) == -1) {
-		std::cout << "Listen failed: " << strerror(errno) << std::endl;
+		logger->error("Listen failed: " + std::string(strerror(errno)));
 		return 0;
 	}
 
 	// Set non-blocking
 	int flags = fcntl(new_listen_socket, F_GETFL);
 	if (flags == -1) {
-		std::cout << "Could not get socket flags: " << strerror(errno) << std::endl;
+		logger->error("Could not get socket flags: " + std::string(strerror(errno)));
 		return 0;
 	}
 	if (fcntl(new_listen_socket, F_SETFL, flags | O_NONBLOCK) == -1) {
-		std::cout << "Could not set non-blocking: " << strerror(errno) << std::endl;
+		logger->error("Could not set non-blocking: " + std::string(strerror(errno)));
 		return 0;
 	}
 
@@ -101,7 +104,7 @@ int connection_mother::create_listen_socket() {
 }
 
 void connection_mother::run() {
-	std::cout << "Sockets up on port " << listen_port << ", starting event loop!" << std::endl;
+	logger->info("Sockets up on port " + std::to_string(listen_port) + ", starting event loop!");
 	ev_loop(ev_default_loop(0), 0);
 }
 
@@ -120,19 +123,15 @@ connection_mother::~connection_mother()
 }
 
 
-
-
-
-
-
 //---------- Connection middlemen - these little guys live until their connection is closed
 
 connection_middleman::connection_middleman(int &listen_socket, worker * new_work, connection_mother * mother_arg) :
 	written(0), mother(mother_arg), work(new_work)
 {
+	auto logger = spdlog::get("logger");
 	connect_sock = accept(listen_socket, NULL, NULL);
 	if (connect_sock == -1) {
-		std::cout << "Accept failed, errno " << errno << ": " << strerror(errno) << std::endl;
+		logger->error("Accept failed, errno " + std::to_string(errno) + ": " + std::string(strerror(errno)));
 		delete this;
 		return;
 	}
@@ -140,10 +139,10 @@ connection_middleman::connection_middleman(int &listen_socket, worker * new_work
 	// Set non-blocking
 	int flags = fcntl(connect_sock, F_GETFL);
 	if (flags == -1) {
-		std::cout << "Could not get connect socket flags" << std::endl;
+		logger->warn("Could not get connect socket flags");
 	}
 	if (fcntl(connect_sock, F_SETFL, flags | O_NONBLOCK) == -1) {
-		std::cout << "Could not set non-blocking" << std::endl;
+		logger->warn("Could not set non-blocking");
 	}
 
 	// Get their info
