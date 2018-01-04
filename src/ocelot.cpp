@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
 		conf->load(conf_file_path, conf_file);
 	}
 
-	if (conf->get_bool("daemonize") || daemonize)) {
+	if (conf->get_bool("daemonize") || daemonize) {
 		create_daemon();
 	}
 
