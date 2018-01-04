@@ -568,7 +568,7 @@ void mysql::do_flush_snatches() {
 				std::string sql = snatch_queue.front();
 				mysqlpp::Query query = c.query(sql);
 				if (!query.exec()) {
-					logger->info("Snatch flush failed (" + std::to_string(snatch_queue.size()) + " remain)")
+					logger->info("Snatch flush failed (" + std::to_string(snatch_queue.size()) + " remain)");
 					sleep(3);
 					continue;
 				} else {
