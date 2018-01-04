@@ -27,8 +27,10 @@ typedef struct {
 	bool visible;
 	bool invalid_ip;
 	user_ptr user;
-	std::string ip_port;
-	std::string ip;
+	std::string ipv4;
+	std::string ipv4_port;
+	std::string ipv6;
+	std::string ipv6_port;
 } peer;
 
 typedef std::map<std::string, peer> peer_list;

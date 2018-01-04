@@ -1,5 +1,21 @@
 -- 1.1 (2017-10-xx)
-..
+Done:
+* Add Daemon mode (so you don't need to run Ocelot via screen)
+* Use spdlog (instead of cout) for output, allowing for console and file loggers
+    * If not using daemon, will always log to console
+    * File logging can be configured via ocelot.conf
+
+
+Not Done:
+* Track both IPv4 and IPv6 peers and allow mixed swarms
+    * Implemented via BEP 0007 (http://www.bittorrent.org/beps/bep_0007.html)
+    * DB Changes:
+        * ALTER TABLE xbt_snatched CHANGE `IP` `ipv4` varchar(15);
+        * ALTER TABLE xbt_snatched ADD COLUMN `ipv6` varchar(45);
+        * ALTER TABLE xbt_files_users CHANGE `ip` `ipv4` varchar(15);
+        * ALTER TABLE xbt_files_users ADD COLUMN `ipv6` varchar(45);
+* Implement compact peer lists (BEP 0023) (http://www.bittorrent.org/beps/bep_0023.html)
+
 
 -- 1.0 (2015-01-26)
 NOTE: This version requires the following database change:

@@ -7,6 +7,7 @@
 #include "schedule.h"
 #include "response.h"
 #include "events.h"
+#include "misc_functions.h"
 
 // Define the connection mother (first half) and connection middlemen (second half)
 
@@ -188,14 +189,19 @@ void connection_middleman::handle_read(ev::io &watcher, int events_flags) {
 			response = error("GET string too long", client_opts);
 		} else {
 			char ip[INET_ADDRSTRLEN];
-			sockaddr_in client_addr;
+			sockaddr_storage client_addr{};
 			socklen_t addr_len = sizeof(client_addr);
 			getpeername(connect_sock, (sockaddr *) &client_addr, &addr_len);
-			inet_ntop(AF_INET, &(client_addr.sin_addr), ip, INET_ADDRSTRLEN);
+			uint16_t ip_ver = 4;
+			if (client_addr.ss_family == AF_INET6) {
+				ip_ver = 6;
+			}
+
+			inet_ntop(client_addr.ss_family, get_in_addr((struct sockaddr *) &client_addr), ip, sizeof ip);
 			std::string ip_str = ip;
 
 			//--- CALL WORKER
-			response = work->work(request, ip_str, client_opts);
+			response = work->work(request, ip_str, ip_ver, client_opts);
 			request.clear();
 			request_size = 0;
 		}

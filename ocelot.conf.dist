@@ -24,6 +24,11 @@ mysql_db            =
 report_password     = 00000000000000000000000000000000
 site_password       = 00000000000000000000000000000000
 
+# Set log settings. Set the path to be the full or relative path to where you want the log file to be,
+# it'll then be named "ocelot-<date_time>.log" for you.
+log                 = false
+log_path            = /tmp
+
 peers_timeout       = 7200
 del_reason_lifetime = 86400
 reap_peers_interval = 1800

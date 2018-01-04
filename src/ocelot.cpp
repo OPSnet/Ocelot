@@ -94,22 +94,22 @@ int main(int argc, char **argv) {
 	std::string conf_file_path("./ocelot.conf");
 
 	for (int i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "-v") == 0) {
+		if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0) {
 			verbose = true;
 		}
 		else if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--daemonize") == 0) {
 			daemonize = true;
 		}
-		else if (strcmp(argv[i], "-c") == 0 && i < argc - 1) {
+		else if ((strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--config")) && i < argc - 1) {
 			conf_arg = true;
 			conf_file_path = argv[++i];
 		}
 		else if(strcmp(argv[i], "-V") == 0 || strcmp(argv[i], "--version") == 0) {
-			std::cout << "Ocelot, version 1.1" << std::endl;
+			std::cout << "Ocelot, version 1.1-dev" << std::endl;
 			return 0;
 		}
 		else {
-			std::cout << "Usage: " << argv[0] << " [-v] [-c configfile]" << std::endl;
+			std::cout << "Usage: " << argv[0] << " [-v|--verbose] [-d|--daemonize] [-c configfile]" << std::endl;
 			return 0;
 		}
 	}
@@ -134,7 +134,9 @@ int main(int argc, char **argv) {
 		sinks.push_back(std::make_shared<spdlog::sinks::stdout_sink_st>());
 	}
 	if (conf->get_bool("log") && !conf->get_str("log_path").empty()) {
-		sinks.push_back(std::make_shared<spdlog::sinks::daily_file_sink_st>(conf->get_str("log_path"), "log", 23, 59));
+		std::string log_path = conf->get_str("log_path");
+		log_path = log_path + ((conf->get_str("log_path").back() == '/') ? "ocelot" : "/ocelot");
+		sinks.push_back(std::make_shared<spdlog::sinks::daily_file_sink_st>(log_path, "log", 23, 59));
 	}
 
 	auto combined_logger = std::make_shared<spdlog::logger>("logger", begin(sinks), end(sinks));

@@ -8,6 +8,7 @@
 #include <iostream>
 #include <mutex>
 #include <ctime>
+#include <cstdint>
 #include <spdlog/spdlog.h>
 #include "site_comm.h"
 #include "ocelot.h"
@@ -48,8 +49,8 @@ class worker {
 	public:
 		worker(config * conf_obj, torrent_list &torrents, user_list &users, std::vector<std::string> &_whitelist, mysql * db_obj, site_comm * sc);
 		void reload_config(config * conf);
-		std::string work(const std::string &input, std::string &ip, client_opts_t &client_opts);
-		std::string announce(const std::string &input, torrent &tor, user_ptr &u, params_type &params, params_type &headers, std::string &ip, client_opts_t &client_opts);
+		std::string work(const std::string &input, std::string &ip, uint16_t &ip_ver, client_opts_t &client_opts);
+		std::string announce(const std::string &input, torrent &tor, user_ptr &u, params_type &params, params_type &headers, std::string &ip, uint16_t &ip_ver, client_opts_t &client_opts);
 		std::string scrape(const std::list<std::string> &infohashes, params_type &headers, client_opts_t &client_opts);
 		std::string update(params_type &params, client_opts_t &client_opts);
 

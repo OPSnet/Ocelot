@@ -255,15 +255,16 @@ void mysql::record_torrent(const std::string &record) {
 	update_torrent_buffer += record;
 }
 
-void mysql::record_peer(const std::string &record, const std::string &ip, const std::string &peer_id, const std::string &useragent) {
+void mysql::record_peer(const std::string &record, const std::string &ipv4, const std::string &ipv6, const std::string &peer_id, const std::string &useragent) {
 	if (update_heavy_peer_buffer != "") {
 		update_heavy_peer_buffer += ",";
 	}
 	mysqlpp::Query q = conn.query();
-	q << record << mysqlpp::quote << ip << ',' << mysqlpp::quote << peer_id << ',' << mysqlpp::quote << useragent << "," << time(NULL) << ')';
+	q << record << mysqlpp::quote << ipv4 << ',' << mysqlpp::quote << peer_id << ',' << mysqlpp::quote << useragent << "," << time(NULL) << ')';
 
 	update_heavy_peer_buffer += q.str();
 }
+
 void mysql::record_peer(const std::string &record, const std::string &peer_id) {
 	if (update_light_peer_buffer != "") {
 		update_light_peer_buffer += ",";
@@ -274,12 +275,12 @@ void mysql::record_peer(const std::string &record, const std::string &peer_id) {
 	update_light_peer_buffer += q.str();
 }
 
-void mysql::record_snatch(const std::string &record, const std::string &ip) {
+void mysql::record_snatch(const std::string &record, const std::string &ipv4, const std::string &ipv6) {
 	if (update_snatch_buffer != "") {
 		update_snatch_buffer += ",";
 	}
 	mysqlpp::Query q = conn.query();
-	q << record << ',' << mysqlpp::quote << ip << ')';
+	q << record << ',' << mysqlpp::quote << ipv4 << ')';
 	update_snatch_buffer += q.str();
 }
 
@@ -363,7 +364,7 @@ void mysql::flush_snatches() {
 	if (update_snatch_buffer == "" ) {
 		return;
 	}
-	sql = "INSERT INTO xbt_snatched (uid, fid, tstamp, IP) VALUES " + update_snatch_buffer;
+	sql = "INSERT INTO xbt_snatched (uid, fid, tstamp, ipv4) VALUES " + update_snatch_buffer;
 	snatch_queue.push(sql);
 	update_snatch_buffer.clear();
 	if (!s_active) {
@@ -399,7 +400,7 @@ void mysql::flush_peers() {
 			peer_queue.pop();
 		}
 		sql = "INSERT INTO xbt_files_users (uid,fid,active,uploaded,downloaded,upspeed,downspeed,remaining,corrupt," +
-			std::string("timespent,announced,ip,peer_id,useragent,mtime) VALUES ") + update_heavy_peer_buffer +
+			std::string("timespent,announced,ipv4,peer_id,useragent,mtime) VALUES ") + update_heavy_peer_buffer +
 					" ON DUPLICATE KEY UPDATE active=VALUES(active), uploaded=VALUES(uploaded), " +
 					"downloaded=VALUES(downloaded), upspeed=VALUES(upspeed), " +
 					"downspeed=VALUES(downspeed), remaining=VALUES(remaining), " +
