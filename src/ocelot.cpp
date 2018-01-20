@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
 		conf->load(conf_file_path, conf_file);
 	}
 
-	if (conf->get_bool("daemonize") || daemonize)) {
+	if (conf->get_bool("daemonize") || daemonize) {
 		create_daemon();
 	}
 
@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
 		sinks.push_back(std::make_shared<spdlog::sinks::stdout_sink_st>());
 	}
 	if (conf->get_bool("log") && !conf->get_str("log_path").empty()) {
-		sinks.push_back(std::make_shared<spdlog::sinks::daily_file_sink_st>(conf->get_str("log_path"), "log", 23, 59));
+		sinks.push_back(std::make_shared<spdlog::sinks::daily_file_sink_st>(conf->get_str("log_path"), 23, 59));
 	}
 
 	auto combined_logger = std::make_shared<spdlog::logger>("logger", begin(sinks), end(sinks));
