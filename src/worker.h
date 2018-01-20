@@ -1,21 +1,64 @@
 #ifndef WORKER_H
 #define WORKER_H
 
+class config;
+class mysql;
+class site_comm;
+struct torrent;
+struct client_opts_t;
+
 #include <string>
-#include <vector>
 #include <list>
-#include <unordered_map>
-#include <iostream>
+#include <vector>
 #include <mutex>
+#include <memory>
+#include <unordered_map>
 #include <ctime>
-#include <spdlog/spdlog.h>
-#include "site_comm.h"
-#include "ocelot.h"
+
+#include <boost/optional.hpp>
+#include <spdlog/logger.h>
+
+#include "torrent.h"
+#include "params.h"
+#include "user.h"
+#include "peer.h"
 
 enum tracker_status { OPEN, PAUSED, CLOSING }; // tracker status
 
 class worker {
 	private:
+		struct del_message {
+			enum class reason {
+				DUPE, 
+				TRUMP, 
+				BAD_FILE_NAMES, 
+				BAD_FOLDER_NAMES, 
+				BAD_TAGS, 
+				BAD_FORMAT, 
+				DISCS_MISSING, 
+				DISCOGRAPHY,
+				EDITED_LOG,
+				INACCURATE_BITRATE, 
+				LOW_BITRATE, 
+				MUTT_RIP,
+				BAD_SOURCE,
+				ENCODE_ERRORS,
+				BANNED, 
+				TRACKS_MISSING,
+				TRANSCODE, 
+				CASSETTE, 
+				UNSPLIT_ALBUM, 
+				USER_COMPILATION, 
+				WRONG_FORMAT, 
+				WRONG_MEDIA, 
+				AUDIENCE,
+				reason_max_
+			};
+			time_t m_time;
+			boost::optional<reason> m_reason;
+			std::string del_reason() const;
+			del_message(const params_type &params);
+		};
 		config * conf;
 		mysql * db;
 		site_comm * s_comm;
@@ -41,7 +84,6 @@ class worker {
 		void do_start_reaper();
 		void reap_peers();
 		void reap_del_reasons();
-		std::string get_del_reason(int code);
 		peer_list::iterator add_peer(peer_list &peer_list, const std::string &peer_id);
 		inline bool peer_is_visible(user_ptr &u, peer *p);
 

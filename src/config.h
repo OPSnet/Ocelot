@@ -44,9 +44,4 @@ class config {
 		std::string get_str(const std::string &setting_name);
 		void set(const std::string &setting_name, const std::string &value);
 };
-
-template <typename T> void config::add(const std::string &setting_name, T value) {
-	confval setting(value);
-	settings[setting_name] = setting;
-}
 #endif

@@ -8,6 +8,7 @@
 #include <queue>
 #include <mutex>
 #include "config.h"
+#include "torrent.h"
 
 class mysql {
 	private:

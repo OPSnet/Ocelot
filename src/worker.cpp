@@ -8,9 +8,10 @@
 #include <algorithm>
 #include <mutex>
 #include <thread>
+#include <array>
 #include <spdlog/spdlog.h>
 
-#include "ocelot.h"
+#include "params.h"
 #include "config.h"
 #include "db.h"
 #include "worker.h"
@@ -19,6 +20,54 @@
 #include "response.h"
 #include "report.h"
 #include "user.h"
+#include "client.h"
+#include "stats.h"
+
+worker::del_message::del_message(const params_type &params):m_time(time(nullptr)) {
+	auto reason_it = params.find("reason");
+	if (reason_it != params.end()) {
+		// TODO : check for validity. atoi is used for now to preserve old
+		// behaviour, which means that reason will be 0 for strings that cannot
+		// be parsed as int.
+		auto reason = atoi(reason_it->second.c_str());
+		if (reason >= 0 && reason < static_cast<int>(reason::reason_max_)) {
+			m_reason = static_cast<enum reason>(reason);
+		}
+	}
+}
+
+std::string worker::del_message::del_reason() const {
+	static const std::array<const char*, static_cast<size_t>(reason::reason_max_)>
+		reason_strings = {{"Dupe",
+			"Trump",
+			"Bad File Names",
+			"Bad Folder Names",
+			"Bad Tags",
+			"Disallowed Format",
+			"Discs Missing",
+			"Discography",
+			"Edited Log",
+			"Inaccurate Bitrate",
+			"Low Bitrate",
+			"Mutt Rip",
+			"Disallowed Source",
+			"Encode Errors",
+			"Specifically Banned",
+			"Tracks Missing",
+			"Transcode",
+			"Unapproved Cassette",
+			"Unsplit Album",
+			"User Compilation",
+			"Wrong Format",
+			"Wrong Media",
+			"Audience Recording",
+	}};
+	if(m_reason) {
+		return reason_strings[static_cast<size_t>(*m_reason)];
+	} else {
+		return "";
+	}
+}
 
 //---------- Worker - does stuff with input
 worker::worker(config * conf_obj, torrent_list &torrents, user_list &users, std::vector<std::string> &_whitelist, mysql * db_obj, site_comm * sc) :
@@ -249,17 +298,15 @@ std::string worker::work(const std::string &input, std::string &ip, client_opts_
 		std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
 		auto tor = torrents_list.find(info_hash_decoded);
 		if (tor == torrents_list.end()) {
-			std::lock_guard<std::mutex> dr_lock(del_reasons_lock);
-			auto msg = del_reasons.find(info_hash_decoded);
-			if (msg != del_reasons.end()) {
-				if (msg->second.reason != -1) {
-					return error("Unregistered torrent: " + get_del_reason(msg->second.reason), client_opts);
-				} else {
-					return error("Unregistered torrent", client_opts);
+			std::string errmsg = "Unregistered torrent";
+			{
+				std::lock_guard<std::mutex> dr_lock(del_reasons_lock);
+				auto msg = del_reasons.find(info_hash_decoded);
+				if (msg != del_reasons.end() && msg->second.m_reason) {
+					errmsg += ": " + msg->second.del_reason();
 				}
-			} else {
-				return error("Unregistered torrent", client_opts);
 			}
+			return error(errmsg, client_opts);
 		}
 		return announce(input, tor->second, u, params, headers, ip, client_opts);
 	} else {
@@ -870,15 +917,11 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
 	} else if (params["action"] == "delete_torrent") {
 		std::string info_hash = params["info_hash"];
 		info_hash = hex_decode(info_hash);
-		int reason = -1;
-		auto reason_it = params.find("reason");
-		if (reason_it != params.end()) {
-			reason = atoi(params["reason"].c_str());
-		}
 		std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
 		auto torrent_it = torrents_list.find(info_hash);
 		if (torrent_it != torrents_list.end()) {
-			logger->info("Deleting torrent " + std::to_string(torrent_it->second.id) + " for the reason '" + get_del_reason(reason) + "'");
+			del_message msg(params);
+			logger->info("Deleting torrent " + std::to_string(torrent_it->second.id) + " for the reason '" + msg.del_reason() + "'");
 			stats.leechers -= torrent_it->second.leechers.size();
 			stats.seeders -= torrent_it->second.seeders.size();
 			for (auto &p: torrent_it->second.leechers) {
@@ -888,10 +931,7 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
 				p.second.user->decr_seeding();
 			}
 			std::lock_guard<std::mutex> dr_lock(del_reasons_lock);
-			del_message msg;
-			msg.reason = reason;
-			msg.time = time(NULL);
-			del_reasons[info_hash] = msg;
+			del_reasons.insert(std::make_pair(info_hash, msg));
 			torrents_list.erase(torrent_it);
 		} else {
 			logger->warn("Failed to find torrent " + bintohex(info_hash) + " to delete ");
@@ -1076,7 +1116,7 @@ void worker::reap_del_reasons()
 	auto it = del_reasons.begin();
 	unsigned int reaped = 0;
 	for (; it != del_reasons.end(); ) {
-		if (it->second.time <= max_time) {
+		if (it->second.m_time <= max_time) {
 			auto del_it = it++;
 			std::lock_guard<std::mutex> dr_lock(del_reasons_lock);
 			del_reasons.erase(del_it);
@@ -1086,84 +1126,6 @@ void worker::reap_del_reasons()
 		++it;
 	}
 	logger->info("Reaped " + std::to_string(reaped) + " del reasons");
-}
-
-std::string worker::get_del_reason(int code)
-{
-	switch (code) {
-		case DUPE:
-			return "Dupe";
-			break;
-		case TRUMP:
-			return "Trump";
-			break;
-		case BAD_FILE_NAMES:
-			return "Bad File Names";
-			break;
-		case BAD_FOLDER_NAMES:
-			return "Bad Folder Names";
-			break;
-		case BAD_TAGS:
-			return "Bad Tags";
-			break;
-		case BAD_FORMAT:
-			return "Disallowed Format";
-			break;
-		case DISCS_MISSING:
-			return "Discs Missing";
-			break;
-		case DISCOGRAPHY:
-			return "Discography";
-			break;
-		case EDITED_LOG:
-			return "Edited Log";
-			break;
-		case INACCURATE_BITRATE:
-			return "Inaccurate Bitrate";
-			break;
-		case LOW_BITRATE:
-			return "Low Bitrate";
-			break;
-		case MUTT_RIP:
-			return "Mutt Rip";
-			break;
-		case BAD_SOURCE:
-			return "Disallowed Source";
-			break;
-		case ENCODE_ERRORS:
-			return "Encode Errors";
-			break;
-		case BANNED:
-			return "Specifically Banned";
-			break;
-		case TRACKS_MISSING:
-			return "Tracks Missing";
-			break;
-		case TRANSCODE:
-			return "Transcode";
-			break;
-		case CASSETTE:
-			return "Unapproved Cassette";
-			break;
-		case UNSPLIT_ALBUM:
-			return "Unsplit Album";
-			break;
-		case USER_COMPILATION:
-			return "User Compilation";
-			break;
-		case WRONG_FORMAT:
-			return "Wrong Format";
-			break;
-		case WRONG_MEDIA:
-			return "Wrong Media";
-			break;
-		case AUDIENCE:
-			return "Audience Recording";
-			break;
-		default:
-			return "";
-			break;
-	}
 }
 
 /* Peers should be invisible if they are a leecher without

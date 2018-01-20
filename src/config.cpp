@@ -5,6 +5,11 @@
 #include "config.h"
 #include "misc_functions.h"
 
+template <typename T> void config::add(const std::string &setting_name, T value) {
+	confval setting(value);
+	settings[setting_name] = setting;
+}
+
 confval::confval() {
 	bool_val = 0;
 	uint_val = 0;

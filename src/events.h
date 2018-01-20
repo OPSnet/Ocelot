@@ -1,33 +1,17 @@
-#include <iostream>
-#include <string>
-#include <cstring>
-#include <spdlog/spdlog.h>
+#ifndef EVENTS_H
+#define EVENTS_H
 
-// libev
+class worker;
+class mysql;
+class site_comm;
+class schedule;
+class config;
+
 #include <ev++.h>
+#include <spdlog/logger.h>
+#include <memory>
 
-// Sockets
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <unistd.h>
-
-#include "config.h"
-#include "worker.h"
-#include "schedule.h"
-#include "db.h"
-#include "site_comm.h"
-
-/*
-TODO find out what these do
-#include <netinet/in.h>
-#include <netdb.h>
-#include <sys/types.h>
-*/
-
-
-
-
+#include "client.h"
 
 /*
 We have three classes - the mother, the middlemen, and the worker
@@ -36,7 +20,7 @@ THE MOTHER
 	It creates a middleman for every new connection, which will be called
 	when its socket is ready for reading.
 THE MIDDLEMEN
-	Each middleman hang around until data is written to its socket. It then
+	Each middleman hangs around until data is written to its socket. It then
 	reads the data and sends it to the worker. When it gets the response, it
 	gets called to write its data back to the client.
 THE WORKER
@@ -45,9 +29,6 @@ THE WORKER
 
 	see worker.h for the worker.
 */
-
-
-
 
 // THE MOTHER - Spawns connection middlemen
 class connection_mother {
@@ -103,3 +84,5 @@ class connection_middleman {
 		void handle_write(ev::io &watcher, int events_flags);
 		void handle_timeout(ev::timer &watcher, int events_flags);
 };
+
+#endif

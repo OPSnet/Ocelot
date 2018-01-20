@@ -2,7 +2,10 @@
 #define USER_H
 
 #include <atomic>
-#include "ocelot.h"
+#include <memory>
+#include <unordered_map>
+
+typedef uint32_t userid_t;
 
 class user {
 	private:
@@ -15,7 +18,11 @@ class user {
 			std::atomic<uint32_t> seeding;
 		} stats;
 	public:
-		user(userid_t uid, bool leech, bool protect);
+		user(userid_t uid, bool leech, bool protect) : id(uid), deleted(false),
+			leechstatus(leech), protect_ip(protect) {
+			stats.leeching = 0;
+			stats.seeding = 0;
+		}
 		userid_t get_id() { return id; }
 		bool is_deleted() { return deleted; }
 		void set_deleted(bool status) { deleted = status; }
@@ -30,4 +37,8 @@ class user {
 		uint32_t get_leeching() { return stats.leeching; }
 		uint32_t get_seeding() { return stats.seeding; }
 };
+
+typedef std::shared_ptr<user> user_ptr;
+typedef std::unordered_map<std::string, user_ptr> user_list;
+
 #endif

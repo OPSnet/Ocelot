@@ -1,7 +1,17 @@
 #ifndef SCHEDULE_H
 #define SCHEDULE_H
 
+class config;
+class worker;
+class mysql;
+class site_comm;
+
+#include <cstdint>
+#include <memory>
+
+#include <spdlog/logger.h>
 #include <ev++.h>
+
 class schedule {
 	private:
 		void load_config(config * conf);

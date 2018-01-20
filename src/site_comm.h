@@ -1,13 +1,10 @@
 #ifndef OCELOT_SITE_COMM_H
 #define OCELOT_SITE_COMM_H
 #include <string>
-#include <boost/asio.hpp>
 #include <queue>
 #include <mutex>
 #include <spdlog/spdlog.h>
 #include "config.h"
-
-using boost::asio::ip::tcp;
 
 class site_comm {
 	private:

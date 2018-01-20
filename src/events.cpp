@@ -1,12 +1,18 @@
 #include <cerrno>
 #include <spdlog/spdlog.h>
-#include "ocelot.h"
+#include "params.h"
 #include "config.h"
 #include "db.h"
 #include "worker.h"
 #include "schedule.h"
 #include "response.h"
 #include "events.h"
+#include "stats.h"
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
 
 // Define the connection mother (first half) and connection middlemen (second half)
 

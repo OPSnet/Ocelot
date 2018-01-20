@@ -1,11 +1,12 @@
 #include <iostream>
 #include <map>
 #include <sstream>
-#include "ocelot.h"
+#include "params.h"
 #include "misc_functions.h"
 #include "report.h"
 #include "response.h"
 #include "user.h"
+#include "stats.h"
 
 std::string report(params_type &params, user_list &users_list, client_opts_t &client_opts) {
 	std::stringstream output;
