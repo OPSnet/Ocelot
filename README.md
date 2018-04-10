@@ -7,6 +7,7 @@ Ocelot is a BitTorrent tracker written in C++ for the [Gazelle](http://whatcd.gi
 * [GCC/G++](http://gcc.gnu.org/) (4.7+ required; 4.8.1+ recommended)
 * [Boost](http://www.boost.org/) (1.55.0+ required)
 * [libev](http://software.schmorp.de/pkg/libev.html) (required)
+* [spdlog](https://github.com/gabime/spdlog) (required)
 * [MySQL++](http://tangentsoft.net/mysql++/) (3.2.0+ required)
 * [TCMalloc](http://goog-perftools.sourceforge.net/doc/tcmalloc.html) (optional, but strongly recommended)
 
