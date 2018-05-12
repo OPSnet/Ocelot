@@ -1,11 +1,13 @@
 #include <iostream>
 #include <spdlog/spdlog.h>
 
-#include "ocelot.h"
+#include "params.h"
 #include "config.h"
 #include "db.h"
 #include "worker.h"
 #include "schedule.h"
+#include "stats.h"
+#include "site_comm.h"
 
 schedule::schedule(config * conf, worker * worker_obj, mysql * db_obj, site_comm * sc_obj) : work(worker_obj), db(db_obj), sc(sc_obj) {
 	load_config(conf);

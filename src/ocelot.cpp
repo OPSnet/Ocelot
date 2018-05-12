@@ -5,11 +5,14 @@
 #include <sys/stat.h>
 #include <syslog.h>
 #include <spdlog/spdlog.h>
-#include "ocelot.h"
+#include "params.h"
 #include "config.h"
 #include "db.h"
 #include "worker.h"
 #include "events.h"
+#include "stats.h"
+#include "schedule.h"
+#include "site_comm.h"
 
 static connection_mother *mother;
 static worker *work;

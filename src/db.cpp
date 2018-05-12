@@ -1,4 +1,4 @@
-#include "ocelot.h"
+#include "params.h"
 #include "db.h"
 #include "user.h"
 #include "misc_functions.h"
@@ -12,6 +12,8 @@
 #include <thread>
 #include <unordered_set>
 #include <spdlog/spdlog.h>
+
+#include "stats.h"
 
 #define DB_LOCK_TIMEOUT 50
 

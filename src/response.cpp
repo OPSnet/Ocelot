@@ -4,6 +4,7 @@
 #include <boost/iostreams/filter/gzip.hpp>
 #include "response.h"
 #include "misc_functions.h"
+#include "client.h"
 
 const std::string response(const std::string &body, client_opts_t &client_opts) {
 	std::string out;

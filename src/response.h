@@ -1,8 +1,10 @@
 #ifndef RESPONSE_H
-#define REPSONSE_H
+#define RESPONSE_H
 
 #include <string>
-#include "ocelot.h"
+#include "params.h"
+
+struct client_opts_t;
 
 const std::string response(const std::string &body, client_opts_t &client_opts);
 const std::string response_head(size_t content_length, client_opts_t &client_opts);
