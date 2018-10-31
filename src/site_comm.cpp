@@ -15,6 +15,7 @@
 using boost::asio::ip::tcp;
 
 site_comm::site_comm(config * conf) : t_active(false) {
+	logger = spdlog::get("logger");
 	load_config(conf);
 }
 

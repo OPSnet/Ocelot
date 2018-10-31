@@ -11,3 +11,4 @@ Makefile
 .deps/
 src/ocelot
 CMakeLists.txt
+/ocelot.conf

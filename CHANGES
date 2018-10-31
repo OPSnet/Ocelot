@@ -1,5 +1,10 @@
--- 1.1 (2017-10-xx)
-..
+-- 1.1 (2018-10-29)
+Move to spdlog (https://github.com/gabime/spdlog)to handle logging instead of cout
+    spdlog is vendored under src/, currently using v0.13.0
+Add logging directive to config to configure how Ocelot logs and where it logs
+Add deamon (--daemon, -d) to run Ocelot as a daemon
+Move source code into src/ directory
+Add Vagrantfile and Dockerfile for running Ocelot
 
 -- 1.0 (2015-01-26)
 NOTE: This version requires the following database change:

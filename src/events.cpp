@@ -15,18 +15,24 @@
 //---------- Connection mother - spawns middlemen and lets them deal with the connection
 
 connection_mother::connection_mother(config * conf, worker * worker_obj, mysql * db_obj, site_comm * sc_obj, schedule * sched) : work(worker_obj), db(db_obj) {
+	logger = spdlog::get("logger");
+
 	// Handle config stuff first
 	load_config(conf);
 
 	listen_socket = create_listen_socket();
+
+	// We failed to create the socket, so no point in running Ocelot
+	if (listen_socket == 0) {
+		logger->critical("Failed to create socket for Ocelot. Exiting.");
+		exit(1);
+	}
 
 	listen_event.set<connection_mother, &connection_mother::handle_connect>(this);
 	listen_event.start(listen_socket, ev::READ);
 	// Create libev timer
 	schedule_event.set<schedule, &schedule::handle>(sched);
 	schedule_event.start(sched->schedule_interval, sched->schedule_interval); // After interval, every interval
-
-	logger = spdlog::get("logger");
 }
 
 void connection_mother::load_config(config * conf) {

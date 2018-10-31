@@ -2,14 +2,22 @@
 # vi: set ft=ruby :
 
 $script = <<SCRIPT
-sudo apt-get -y install build-essential autoconf
-sudo apt-get -y install libboost-iostreams-dev libboost-system-dev
-sudo apt-get -y install libev-dev
-sudo apt-get -y install libmysqlclient-dev libmysql++-dev
+apt-get update
+apt-get -y install \
+    autoconf \
+    build-essential \
+    default-libmysqlclient-dev \
+    libboost-iostreams-dev \
+    libboost-system-dev \
+    libev-dev \
+    libmysql++-dev \
+    pkg-config \
+    mariadb-client \
+    mariadb-server 
 SCRIPT
 
 Vagrant.configure("2") do |config|
-  config.vm.box = "debian/contrib-jessie64"
+  config.vm.box = "debian/contrib-stretch64"
 
   config.vm.synced_folder ".", "/vagrant"
   config.vm.provision "shell", inline: $script

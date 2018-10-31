@@ -29,4 +29,7 @@ del_reason_lifetime = 86400
 reap_peers_interval = 1800
 schedule_interval   = 3
 
+log                 = false
+log_path            = /tmp/ocelot
+
 readonly            = false

@@ -4,7 +4,9 @@
 #include <thread>
 #include <sys/stat.h>
 #include <syslog.h>
-#include <spdlog/spdlog.h>
+#include "spdlog/spdlog.h"
+#include "spdlog/sinks/daily_file_sink.h"
+#include "spdlog/sinks/stdout_sinks.h"
 #include "ocelot.h"
 #include "config.h"
 #include "db.h"
@@ -131,10 +133,10 @@ int main(int argc, char **argv) {
 
 	std::vector<spdlog::sink_ptr> sinks;
 	if (!conf->get_bool("daemonize") && !daemonize) {
-		sinks.push_back(std::make_shared<spdlog::sinks::stdout_sink_st>());
+		sinks.push_back(std::make_shared<spdlog::sinks::stdout_sink_mt>());
 	}
 	if (conf->get_bool("log") && !conf->get_str("log_path").empty()) {
-		sinks.push_back(std::make_shared<spdlog::sinks::daily_file_sink_st>(conf->get_str("log_path"), 23, 59));
+		sinks.push_back(std::make_shared<spdlog::sinks::daily_file_sink_mt>(conf->get_str("log_path"), 23, 59));
 	}
 
 	auto combined_logger = std::make_shared<spdlog::logger>("logger", begin(sinks), end(sinks));
