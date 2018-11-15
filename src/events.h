@@ -1,3 +1,7 @@
+#ifdef EV_ERROR
+#undef EV_ERROR
+#endif
+
 #include <iostream>
 #include <string>
 #include <cstring>
