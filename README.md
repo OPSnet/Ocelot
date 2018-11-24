@@ -35,7 +35,8 @@ The [Gazelle installation guides](https://github.com/WhatCD/Gazelle/wiki/Gazelle
 
 * Build Ocelot:
 
-        ./configure
+        autoreconf -i
+        ./configure (Use ./configure -with-boost-libdir=/usr/local/lib/ on FreeBSD)
         make
         make install
 

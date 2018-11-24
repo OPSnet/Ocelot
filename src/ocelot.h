@@ -8,6 +8,7 @@
 #include <set>
 #include <memory>
 #include <atomic>
+#include <time.h>
 
 typedef uint32_t torid_t;
 typedef uint32_t userid_t;
