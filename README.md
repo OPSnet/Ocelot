@@ -1,6 +1,7 @@
 # Ocelot
 
-Ocelot is a BitTorrent tracker written in C++ for the [Gazelle](http://whatcd.github.io/Gazelle/) project. It supports requests over TCP and can only track IPv4 peers.
+Ocelot is a BitTorrent tracker written in C++ for the [Gazelle](http://github.com/OPSnet/Gazelle) project.
+It supports requests over TCP and can only track IPv4 peers.
 
 ## Ocelot Compile-time Dependencies
 
@@ -9,14 +10,27 @@ Ocelot is a BitTorrent tracker written in C++ for the [Gazelle](http://whatcd.gi
 * [libev](http://software.schmorp.de/pkg/libev.html) (required)
 * [spdlog](https://github.com/gabime/spdlog) (required)
 * [MySQL++](http://tangentsoft.net/mysql++/) (3.2.0+ required)
-* [TCMalloc](http://goog-perftools.sourceforge.net/doc/tcmalloc.html) (optional, but strongly recommended)
+* [jemalloc](http://jemalloc.net/) (optional, but strongly recommended)
+* [TCMalloc](http://goog-perftools.sourceforge.net/doc/tcmalloc.html) (optional)
 
 ## Installation
 
 ### Debian Stretch
 ```bash
-sudo apt-get install pkg-config libev-dev libboost-all-dev
-./configure --with-boost-libdir=/usr/lib/x86_64-linux-gnu
+sudo apt-get install \
+    build-essential \
+    cmake \
+    default-libmysqlclient-dev \
+    libboost-iostreams-dev \
+    libboost-system-dev \
+    libev-dev \
+    libjemalloc-dev \
+    libmysql++-dev \
+    pkg-config
+mkdir build
+cd build
+cmake ..
+make
 ```
 
 The [Gazelle installation guides](https://github.com/WhatCD/Gazelle/wiki/Gazelle-installation) include instructions for installing Ocelot as a part of the Gazelle project.
@@ -35,10 +49,10 @@ The [Gazelle installation guides](https://github.com/WhatCD/Gazelle/wiki/Gazelle
 
 * Build Ocelot:
 
-        autoreconf -i
-        ./configure (Use ./configure -with-boost-libdir=/usr/local/lib/ on FreeBSD)
+        mkdir build
+        cd build
+        cmake ..
         make
-        make install
 
 ## Running Ocelot
 

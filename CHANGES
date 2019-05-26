@@ -1,3 +1,8 @@
+-- 1.2 (2019-xx-xx)
+Move to CMake for building project instead of autotools
+Drop Vagranfile in favor of only supporting the Dockerfile
+Add support for using jemalloc (http://jemalloc.net/)
+
 -- 1.1 (2018-10-29)
 Move to spdlog (https://github.com/gabime/spdlog)to handle logging instead of cout
     spdlog is vendored under src/, currently using v0.13.0
