@@ -17,8 +17,8 @@
 #ifndef FMT_USE_WINDOWS_H
 #define FMT_USE_WINDOWS_H 0
 #endif
-#include "bundled/core.h"
-#include "bundled/format.h"
+#include "spdlog/fmt/bundled/core.h"
+#include "spdlog/fmt/bundled/format.h"
 #else // external fmtlib
 #include <fmt/core.h>
 #include <fmt/format.h>

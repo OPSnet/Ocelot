@@ -164,4 +164,4 @@ protected:
 };
 } // namespace spdlog
 
-#include "details/logger_impl.h"
+#include "spdlog/details/logger_impl.h"

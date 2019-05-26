@@ -4,9 +4,9 @@
 #include <thread>
 #include <sys/stat.h>
 #include <syslog.h>
-#include "spdlog/spdlog.h"
-#include "spdlog/sinks/daily_file_sink.h"
-#include "spdlog/sinks/stdout_sinks.h"
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/daily_file_sink.h>
+#include <spdlog/sinks/stdout_sinks.h>
 #include "ocelot.h"
 #include "config.h"
 #include "db.h"

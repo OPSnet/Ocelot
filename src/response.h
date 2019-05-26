@@ -1,5 +1,5 @@
 #ifndef RESPONSE_H
-#define REPSONSE_H
+#define RESPONSE_H
 
 #include <string>
 #include "ocelot.h"
