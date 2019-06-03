@@ -1,0 +1,20 @@
+[Unit]
+Description=Ocelot Bittorrent Tracker
+After=network.target
+After=mysql.target
+Requires=network.target
+Requires=mysql.service
+
+[Service]
+Type=simple
+TimeoutStartSec=0
+ExecStart=/usr/local/bin/ocelot
+ExecReload=/bin/kill -HUP $MAINPID
+PIDFile=/var/run/ocelot.pid
+RestartSec=20
+TimeoutStopSec=60
+TimeoutStartSec=360
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
