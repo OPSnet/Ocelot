@@ -12,6 +12,7 @@ using boost::asio::ip::tcp;
 class site_comm {
 	private:
 		std::string site_host;
+		std::string site_service;
 		std::string site_path;
 		std::string site_password;
 		std::mutex expire_queue_lock;

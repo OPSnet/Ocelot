@@ -84,6 +84,7 @@ void config::init() {
 
 	// Site communication
 	add("site_host", "127.0.0.1");
+	add("site_service", "http");
 	add("site_path", "");
 	add("site_password", "00000000000000000000000000000000");
 	add("report_password", "00000000000000000000000000000000");

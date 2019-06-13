@@ -21,6 +21,7 @@ site_comm::site_comm(config * conf) : t_active(false) {
 
 void site_comm::load_config(config * conf) {
 	site_host = conf->get_str("site_host");
+	site_service = conf->get_str("site_service");
 	site_path = conf->get_str("site_path");
 	site_password = conf->get_str("site_password");
 	readonly = conf->get_bool("readonly");
@@ -81,7 +82,7 @@ void site_comm::do_flush_tokens()
 			boost::asio::io_service io_service;
 
 			tcp::resolver resolver(io_service);
-			tcp::resolver::query query(site_host, "http");
+			tcp::resolver::query query(site_host, site_service);
 			tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 			tcp::resolver::iterator end;
 
