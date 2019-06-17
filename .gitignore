@@ -10,7 +10,11 @@ autom4te.cache/
 Makefile
 .deps/
 src/ocelot
-CMakeLists.txt
 /ocelot.conf
 build/
 /ocelot
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.cbp
+.DS_Store
