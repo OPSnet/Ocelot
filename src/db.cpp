@@ -62,7 +62,7 @@ void mysql::clear_peer_data() {
 		if (!query.exec()) {
 			logger->error("Unable to truncate xbt_files_users!");
 		}
-		query = conn.query("UPDATE torrents SET Seeders = 0, Leechers = 0;");
+		query = conn.query("UPDATE torrents_leech_stats SET Seeders = 0, Leechers = 0;");
 		if (!query.exec()) {
 			logger->error("Unable to reset seeder and leecher count!");
 		}
@@ -74,7 +74,7 @@ void mysql::clear_peer_data() {
 }
 
 void mysql::load_torrents(torrent_list &torrents) {
-	mysqlpp::Query query = conn.query("SELECT ID, info_hash, freetorrent, Snatched FROM torrents ORDER BY ID;");
+	mysqlpp::Query query = conn.query("SELECT t.ID, t.info_hash, t.freetorrent, tls.Snatched FROM torrents t INNER JOIN torrents_leech_stats tls ON (tls.TorrentID = t.ID) ORDER BY t.ID");
 	try {
 		mysqlpp::StoreQueryResult res = query.store();
 		std::unordered_set<std::string> cur_keys;
@@ -186,7 +186,7 @@ void mysql::load_users(user_list &users) {
 }
 
 void mysql::load_tokens(torrent_list &torrents) {
-	mysqlpp::Query query = conn.query("SELECT uf.UserID, t.info_hash FROM users_freeleeches AS uf JOIN torrents AS t ON t.ID = uf.TorrentID WHERE uf.Expired = '0';");
+	mysqlpp::Query query = conn.query("SELECT uf.UserID, t.info_hash FROM users_freeleeches AS uf INNER JOIN torrents AS t ON t.ID = uf.TorrentID WHERE uf.Expired = '0';");
 	int token_count = 0;
 	try {
 		mysqlpp::StoreQueryResult res = query.store();
@@ -309,7 +309,7 @@ void mysql::flush_users() {
 	if (update_user_buffer == "") {
 		return;
 	}
-	sql = "INSERT INTO users_main (ID, Uploaded, Downloaded) VALUES " + update_user_buffer +
+	sql = "INSERT INTO users_leech_stats (UserID, Uploaded, Downloaded) VALUES " + update_user_buffer +
 		" ON DUPLICATE KEY UPDATE Uploaded = Uploaded + VALUES(Uploaded), Downloaded = Downloaded + VALUES(Downloaded)";
 	user_queue.push(sql);
 	update_user_buffer.clear();
@@ -334,7 +334,7 @@ void mysql::flush_torrents() {
 	if (update_torrent_buffer == "") {
 		return;
 	}
-	sql = "INSERT INTO torrents (ID,Seeders,Leechers,Snatched,Balance) VALUES " + update_torrent_buffer +
+	sql = "INSERT INTO torrents_leech_stats (TorrentID,Seeders,Leechers,Snatched,Balance) VALUES " + update_torrent_buffer +
 		" ON DUPLICATE KEY UPDATE Seeders=VALUES(Seeders), Leechers=VALUES(Leechers), " +
 		"Snatched=Snatched+VALUES(Snatched), Balance=VALUES(Balance), last_action = " +
 		"IF(VALUES(Seeders) > 0, NOW(), last_action)";

@@ -39,7 +39,9 @@ The [Gazelle installation guides](https://github.com/WhatCD/Gazelle/wiki/Gazelle
 
 * Create the following tables according to the [Gazelle database schema](https://raw.githubusercontent.com/WhatCD/Gazelle/master/gazelle.sql):
  - `torrents`
+ - `torrents_leech_stats`
  - `users_freeleeches`
+ - `users_leech_stats`
  - `users_main`
  - `xbt_client_whitelist`
  - `xbt_files_users`
