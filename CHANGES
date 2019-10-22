@@ -1,10 +1,11 @@
--- 1.2 (2019-xx-xx)
+-- 1.2 (2019-10-22)
 Move to CMake for building project instead of autotools
 Drop Vagranfile in favor of only supporting the Dockerfile
 Add support for building against jemalloc (http://jemalloc.net/)
 Fix FreeBSD support (thanks @HierraStrunger)
 Add systemd service file for ocelot (thanks @HierraStrunger)
 Add site_service config option to set the service/port ocelot runs on (defaults to "http")
+Write leech stats into their own dedicated tables (users_leech_stats, torrents_leech_stats)
 
 -- 1.1 (2018-10-29)
 Move to spdlog (https://github.com/gabime/spdlog)to handle logging instead of cout
