@@ -363,7 +363,7 @@ void mysql::flush_snatches() {
 	if (update_snatch_buffer.empty()) {
 		return;
 	}
-	sql = "INSERT INTO xbt_snatched (uid, fid, tstamp, IP) VALUES " + update_snatch_buffer;
+	sql = "INSERT IGNORE INTO xbt_snatched (uid, fid, tstamp, IP) VALUES " + update_snatch_buffer;
 	snatch_queue.push(sql);
 	update_snatch_buffer.clear();
 	if (!s_active) {
