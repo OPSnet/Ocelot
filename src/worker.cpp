@@ -585,7 +585,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 
 				// Find out where to begin in the seeder list
 				peer_list::const_iterator i;
-				if (tor.last_selected_seeder == "") {
+				if (tor.last_selected_seeder.empty()) {
 					i = tor.seeders.begin();
 				} else {
 					i = tor.seeders.find(tor.last_selected_seeder);
