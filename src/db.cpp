@@ -142,7 +142,7 @@ void mysql::load_torrents(torrent_list &torrents) {
 }
 
 void mysql::load_users(user_list &users) {
-	mysqlpp::Query query = conn.query("SELECT ID, can_leech, torrent_pass, (Visible='0' OR IP='127.0.0.1') AS Protected FROM users_main WHERE Enabled='1';");
+	mysqlpp::Query query = conn.query("SELECT ID, can_leech, torrent_pass, (Visible='0' OR IP='127.0.0.1') AS Protected, track_ipv6 FROM users_main WHERE Enabled='1';");
 	try {
 		mysqlpp::StoreQueryResult res = query.store();
 		size_t num_rows = res.num_rows();
@@ -160,12 +160,14 @@ void mysql::load_users(user_list &users) {
 		for (size_t i = 0; i < num_rows; i++) {
 			std::string passkey(res[i][2]);
 			bool protect_ip = res[i][3];
-			user_ptr tmp_user = std::make_shared<user>(res[i][0], res[i][1], protect_ip);
+			bool track_ipv6 = res[i][4];
+			user_ptr tmp_user = std::make_shared<user>(res[i][0], res[i][1], protect_ip, track_ipv6);
 			auto it = users.insert(std::pair<std::string, user_ptr>(passkey, tmp_user));
 			if (!it.second) {
 				user_ptr &u = (it.first)->second;
 				u->set_leechstatus(res[i][1]);
 				u->set_protected(protect_ip);
+				u->set_track_ipv6(track_ipv6);
 				u->set_deleted(false);
 				cur_keys.erase(passkey);
 			}
@@ -255,12 +257,12 @@ void mysql::record_torrent(const std::string &record) {
 	update_torrent_buffer += record;
 }
 
-void mysql::record_peer(const std::string &record, const std::string &ip, const std::string &peer_id, const std::string &useragent) {
+void mysql::record_peer(const std::string &record, const std::string &ipv4, const std::string &ipv6, const std::string &peer_id, const std::string &useragent) {
 	if (!update_heavy_peer_buffer.empty()) {
 		update_heavy_peer_buffer += ",";
 	}
 	mysqlpp::Query q = conn.query();
-	q << record << mysqlpp::quote << ip << ',' << mysqlpp::quote << peer_id << ',' << mysqlpp::quote << useragent << "," << time(NULL) << ')';
+	q << record << mysqlpp::quote << ipv4 << ',' << mysqlpp::quote << ipv6 << ',' << mysqlpp::quote << peer_id << ',' << mysqlpp::quote << useragent << "," << time(NULL) << ')';
 
 	update_heavy_peer_buffer += q.str();
 }
@@ -274,12 +276,12 @@ void mysql::record_peer(const std::string &record, const std::string &peer_id) {
 	update_light_peer_buffer += q.str();
 }
 
-void mysql::record_snatch(const std::string &record, const std::string &ip) {
+void mysql::record_snatch(const std::string &record, const std::string &ipv4, const std::string &ipv6) {
 	if (!update_snatch_buffer.empty()) {
 		update_snatch_buffer += ",";
 	}
 	mysqlpp::Query q = conn.query();
-	q << record << ',' << mysqlpp::quote << ip << ')';
+	q << record << ',' << mysqlpp::quote << ipv4 << ',' << mysqlpp::quote << ipv6 << ')';
 	update_snatch_buffer += q.str();
 }
 
@@ -363,7 +365,7 @@ void mysql::flush_snatches() {
 	if (update_snatch_buffer.empty()) {
 		return;
 	}
-	sql = "INSERT IGNORE INTO xbt_snatched (uid, fid, tstamp, IP) VALUES " + update_snatch_buffer;
+	sql = "INSERT IGNORE INTO xbt_snatched (uid, fid, tstamp, IP, ipv6) VALUES " + update_snatch_buffer;
 	snatch_queue.push(sql);
 	update_snatch_buffer.clear();
 	if (!s_active) {
@@ -399,7 +401,7 @@ void mysql::flush_peers() {
 			peer_queue.pop();
 		}
 		sql = "INSERT INTO xbt_files_users (uid,fid,active,uploaded,downloaded,upspeed,downspeed,remaining,corrupt," +
-			std::string("timespent,announced,ip,peer_id,useragent,mtime) VALUES ") + update_heavy_peer_buffer +
+			std::string("timespent,announced,ip,ipv6,peer_id,useragent,mtime) VALUES ") + update_heavy_peer_buffer +
 					" ON DUPLICATE KEY UPDATE active=VALUES(active), uploaded=VALUES(uploaded), " +
 					"downloaded=VALUES(downloaded), upspeed=VALUES(upspeed), " +
 					"downspeed=VALUES(downspeed), remaining=VALUES(remaining), " +
@@ -463,7 +465,7 @@ void mysql::do_flush_users() {
 				mysqlpp::Query query = c.query(sql);
 				if (!query.exec()) {
 					logger->info("User flush failed (" + std::to_string(user_queue.size()) + " remain)");
-					sleep(3);
+					std::this_thread::sleep_for(std::chrono::seconds(3));
 					continue;
 				} else {
 					std::lock_guard<std::mutex> uq_lock(user_queue_lock);

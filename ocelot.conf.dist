@@ -9,16 +9,17 @@ max_read_buffer     = 4096
 connection_timeout  = 10
 # Keepalive is mostly useful if the tracker runs behind reverse proxies
 keepalive_timeout   = 0
+enable_ipv6         = false
 
 announce_interval   = 1800
 max_request_size    = 4096
 numwant_limit       = 50
 request_log_size    = 500
 
-mysql_host          = 
-mysql_username      = 
-mysql_password      = 
-mysql_db            = 
+mysql_host          =
+mysql_username      =
+mysql_password      =
+mysql_db            =
 
 # The passwords must be 32 characters and match the Gazelle config
 report_password     = 00000000000000000000000000000000

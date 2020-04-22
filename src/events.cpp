@@ -1,4 +1,9 @@
 #include <cerrno>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+
 #include <spdlog/spdlog.h>
 #include "ocelot.h"
 #include "config.h"
@@ -193,15 +198,32 @@ void connection_middleman::handle_read(ev::io &watcher, int events_flags) {
 			shutdown(connect_sock, SHUT_RD);
 			response = error("GET string too long", client_opts);
 		} else {
-			char ip[INET_ADDRSTRLEN];
-			sockaddr_in client_addr;
+			char ip[INET6_ADDRSTRLEN];
+			struct sockaddr_storage client_addr;
 			socklen_t addr_len = sizeof(client_addr);
 			getpeername(connect_sock, (sockaddr *) &client_addr, &addr_len);
-			inet_ntop(AF_INET, &(client_addr.sin_addr), ip, INET_ADDRSTRLEN);
-			std::string ip_str = ip;
+			uint16_t ip_ver = 4;
+			std::string ip_str;
+			if (client_addr.ss_family == AF_INET) {
+				struct sockaddr_in *s = (struct sockaddr_in *)&client_addr;
+				ip_ver = 4;
+				inet_ntop(AF_INET, (void*)&(s->sin_addr), ip, sizeof(ip));
+				ip_str = ip;
+			} else if (client_addr.ss_family == AF_INET6) {
+				struct sockaddr_in6 *s6 = (struct sockaddr_in6 *)&client_addr;
+				ip_ver = 6;
+				inet_ntop(AF_INET6, (void*)&(s6->sin6_addr), ip, sizeof(ip));
+				ip_str = ip;
+
+				// Handle IPv6-mapped IPv4
+				if (ip_str.substr(0, 7) == "::ffff:") {
+					ip_ver = 4;
+					ip_str = ip_str.substr(7);
+				}
+			}
 
 			//--- CALL WORKER
-			response = work->work(request, ip_str, client_opts);
+			response = work->work(request, ip_str, ip_ver, client_opts);
 			request.clear();
 			request_size = 0;
 		}
