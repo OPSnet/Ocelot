@@ -477,7 +477,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 	if (inserted || port != p->port || ip != p->ip) {
 		p->port = port;
 		p->ip = ip;
-		p->ip_port = "";
+		p->ip_port.clear();
 		char x = 0;
 		for (size_t pos = 0, end = ip.length(); pos < end; pos++) {
 			if (ip[pos] == '.') {
@@ -515,7 +515,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 		std::string record_str = record.str();
 		std::string record_ip;
 		if (u->is_protected()) {
-			record_ip = "";
+			record_ip.clear();
 		} else {
 			record_ip = ip;
 		}
@@ -550,7 +550,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 		std::stringstream record;
 		std::string record_ip;
 		if (u->is_protected()) {
-			record_ip = "";
+			record_ip.empty();
 		} else {
 			record_ip = ip;
 		}
@@ -585,7 +585,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 
 				// Find out where to begin in the seeder list
 				peer_list::const_iterator i;
-				if (tor.last_selected_seeder == "") {
+				if (tor.last_selected_seeder.empty()) {
 					i = tor.seeders.begin();
 				} else {
 					i = tor.seeders.find(tor.last_selected_seeder);
@@ -793,7 +793,7 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
 			t->id = static_cast<torid_t>(strtoint32(params["id"]));
 			t->balance = 0;
 			t->completed = 0;
-			t->last_selected_seeder = "";
+			t->last_selected_seeder.clear();
 		} else {
 			t = &i->second;
 		}
@@ -1161,7 +1161,7 @@ std::string worker::get_del_reason(int code)
 			return "Audience Recording";
 			break;
 		default:
-			return "";
+			return std::string();
 			break;
 	}
 }

@@ -11,13 +11,28 @@
 
 class mysql {
 	private:
+		class query_buffer {
+			std::string buf;
+		public:
+			query_buffer() {}
+			query_buffer& operator+=(const std::string& chars) {
+				if (!buf.empty()) {
+					buf += ',';
+				}
+				buf += chars;
+				return *this;
+			}
+			void clear() { buf.clear(); }
+			bool empty() const { return buf.empty(); }
+			const std::string& str() const { return buf; }
+		};
 		mysqlpp::Connection conn;
-		std::string update_user_buffer;
-		std::string update_torrent_buffer;
-		std::string update_heavy_peer_buffer;
-		std::string update_light_peer_buffer;
-		std::string update_snatch_buffer;
-		std::string update_token_buffer;
+		query_buffer update_user_buffer;
+		query_buffer update_torrent_buffer;
+		query_buffer update_heavy_peer_buffer;
+		query_buffer update_light_peer_buffer;
+		query_buffer update_snatch_buffer;
+		query_buffer update_token_buffer;
 
 		std::queue<std::string> user_queue;
 		std::queue<std::string> torrent_queue;

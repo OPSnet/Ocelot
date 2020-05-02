@@ -5,13 +5,6 @@
 #include "config.h"
 #include "misc_functions.h"
 
-confval::confval() {
-	bool_val = 0;
-	uint_val = 0;
-	str_val = "";
-	val_type = CONF_NONEXISTENT;
-}
-
 confval::confval(bool value) {
 	bool_val = value;
 	val_type = CONF_BOOL;
@@ -51,7 +44,6 @@ void confval::set(const std::string &value) {
 
 config::config() {
 	init();
-	dummy_setting = new confval(); // Safety value to use if we're accessing nonexistent settings
 }
 
 void config::init() {
@@ -79,13 +71,13 @@ void config::init() {
 	// MySQL
 	add("mysql_db", "gazelle");
 	add("mysql_host", "localhost");
-	add("mysql_username", "");
-	add("mysql_password", "");
+	add("mysql_username", std::string());
+	add("mysql_password", std::string());
 
 	// Site communication
 	add("site_host", "127.0.0.1");
 	add("site_service", "http");
-	add("site_path", "");
+	add("site_path", std::string());
 	add("site_password", "00000000000000000000000000000000");
 	add("report_password", "00000000000000000000000000000000");
 
@@ -101,7 +93,7 @@ confval * config::get(const std::string &setting_name) {
 	const auto setting = settings.find(setting_name);
 	if (setting == settings.end()) {
 		 spdlog::get("logger")->info("WARNING: Unrecognized setting '" + setting_name + "'");
-		return dummy_setting;
+		return &dummy_setting;
 	}
 	return &setting->second;
 }
