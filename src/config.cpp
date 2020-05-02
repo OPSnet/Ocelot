@@ -71,13 +71,13 @@ void config::init() {
 	// MySQL
 	add("mysql_db", "gazelle");
 	add("mysql_host", "localhost");
-	add("mysql_username", std::string());
-	add("mysql_password", std::string());
+	add("mysql_username", "");
+	add("mysql_password", "");
 
 	// Site communication
 	add("site_host", "127.0.0.1");
 	add("site_service", "http");
-	add("site_path", std::string());
+	add("site_path", "");
 	add("site_password", "00000000000000000000000000000000");
 	add("report_password", "00000000000000000000000000000000");
 
