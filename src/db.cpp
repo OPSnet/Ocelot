@@ -476,7 +476,7 @@ void mysql::do_flush_torrents() {
 		while (torrent_queue.size() > 0) {
 			try {
 				std::string sql = torrent_queue.front();
-				if (sql == "") {
+				if (sql.empty()) {
 					torrent_queue.pop();
 					continue;
 				}
