@@ -62,11 +62,7 @@ class mysql {
 		void load_config(config * conf);
 		void load_tokens(torrent_list &torrents);
 
-		void do_flush_users();
-		void do_flush_torrents();
-		void do_flush_snatches();
-		void do_flush_peers();
-		void do_flush_tokens();
+		void do_flush(std::queue<std::string> &queue, std::mutex &mtx, bool &active);
 
 		void flush_users();
 		void flush_torrents();

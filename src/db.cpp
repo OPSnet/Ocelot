@@ -295,7 +295,9 @@ void mysql::flush_users() {
 	user_queue.push(sql);
 	update_user_buffer.clear();
 	if (!u_active) {
-		std::thread thread(&mysql::do_flush_users, this);
+		std::thread thread([this]() {
+			do_flush(user_queue, user_queue_lock, u_active);
+		});
 		thread.detach();
 	}
 }
@@ -321,7 +323,9 @@ void mysql::flush_torrents() {
 	sql = "DELETE FROM torrents WHERE info_hash = ''";
 	torrent_queue.push(sql);
 	if (!t_active) {
-		std::thread thread(&mysql::do_flush_torrents, this);
+		std::thread thread([this]() {
+			do_flush(torrent_queue, torrent_queue_lock, t_active);
+		});
 		thread.detach();
 	}
 }
@@ -340,7 +344,9 @@ void mysql::flush_snatches() {
 	snatch_queue.push(sql);
 	update_snatch_buffer.clear();
 	if (!s_active) {
-		std::thread thread(&mysql::do_flush_snatches, this);
+		std::thread thread([this]() {
+			do_flush(snatch_queue, snatch_queue_lock, s_active);
+		});
 		thread.detach();
 	}
 }
@@ -392,7 +398,9 @@ void mysql::flush_peers() {
 	}
 
 	if (!p_active) {
-		std::thread thread(&mysql::do_flush_peers, this);
+		std::thread thread([this]() {
+			do_flush(peer_queue, peer_queue_lock, p_active);
+		});
 		thread.detach();
 	}
 }
@@ -412,174 +420,31 @@ void mysql::flush_tokens() {
 	token_queue.push(sql);
 	update_token_buffer.clear();
 	if (!tok_active) {
-		std::thread thread(&mysql::do_flush_tokens, this);
+		std::thread thread([this]() {
+			do_flush(token_queue, token_queue_lock, tok_active);
+		});
 		thread.detach();
 	}
 }
 
-void mysql::do_flush_users() {
-	u_active = true;
+void mysql::do_flush(std::queue<std::string> &queue, std::mutex &mtx, bool &active) {
+	active = true;
 	try {
 		mysqlpp::Connection c(mysql_db.c_str(), mysql_host.c_str(), mysql_username.c_str(), mysql_password.c_str(), 0);
-		while (user_queue.size() > 0) {
+		while (queue.size() > 0) {
 			try {
-				std::string sql = user_queue.front();
+				std::string sql = queue.front();
 				mysqlpp::Query query = c.query(sql);
 				if (!query.exec()) {
-					logger->info("User flush failed (" + std::to_string(user_queue.size()) + " remain)");
+					logger->info("Token flush failed (" + std::to_string(queue.size()) + " remain)");
 					sleep(3);
 					continue;
 				} else {
-					std::lock_guard<std::mutex> uq_lock(user_queue_lock);
-					user_queue.pop();
+					std::lock_guard<std::mutex> lck(mtx);
+					queue.pop();
 				}
-			}
-			catch (const mysqlpp::BadQuery &er) {
-				logger->error("Query error: " + std::string(er.what()) + " in flush users with a qlength: " + std::to_string(user_queue.front().size()) + " queue size: " + std::to_string(user_queue.size()));
-				sleep(3);
-				continue;
 			} catch (const mysqlpp::Exception &er) {
-				logger->error("Query error: " + std::string(er.what()) + " in flush users with a qlength: " + std::to_string(user_queue.front().size()) +  " queue size: " + std::to_string(user_queue.size()));
-				sleep(3);
-				continue;
-			}
-		}
-	}
-	catch (const mysqlpp::Exception &er) {
-		logger->error("MySQL error in flush_users: " + std::string(er.what()));
-	}
-	u_active = false;
-}
-
-void mysql::do_flush_torrents() {
-	t_active = true;
-	try {
-		mysqlpp::Connection c(mysql_db.c_str(), mysql_host.c_str(), mysql_username.c_str(), mysql_password.c_str(), 0);
-		while (torrent_queue.size() > 0) {
-			try {
-				std::string sql = torrent_queue.front();
-				if (sql.empty()) {
-					torrent_queue.pop();
-					continue;
-				}
-				mysqlpp::Query query = c.query(sql);
-				if (!query.exec()) {
-					logger->info("Torrent flush failed (" + std::to_string(torrent_queue.size()) + " remain)");
-					sleep(3);
-					continue;
-				} else {
-					std::lock_guard<std::mutex> tq_lock(torrent_queue_lock);
-					torrent_queue.pop();
-				}
-			}
-			catch (const mysqlpp::BadQuery &er) {
-				logger->error("Query error: " + std::string(er.what()) + " in flush torrents with a qlength: " + std::to_string(torrent_queue.front().size()) + " queue size: " + std::to_string(torrent_queue.size()));
-				sleep(3);
-				continue;
-			} catch (const mysqlpp::Exception &er) {
-				logger->error("Query error: " + std::string(er.what()) + " in flush torrents with a qlength: " + std::to_string(torrent_queue.front().size()) + " queue size: " + std::to_string(torrent_queue.size()));
-				sleep(3);
-				continue;
-			}
-		}
-	}
-	catch (const mysqlpp::Exception &er) {
-		logger->error("MySQL error in flush_torrents: " + std::string(er.what()));
-	}
-	t_active = false;
-}
-
-void mysql::do_flush_peers() {
-	p_active = true;
-	try {
-		mysqlpp::Connection c(mysql_db.c_str(), mysql_host.c_str(), mysql_username.c_str(), mysql_password.c_str(), 0);
-		while (peer_queue.size() > 0) {
-			try {
-				std::string sql = peer_queue.front();
-				mysqlpp::Query query = c.query(sql);
-				if (!query.exec()) {
-					logger->info("Peer flush failed (" + std::to_string(peer_queue.size()) + " remain)");
-					sleep(3);
-					continue;
-				} else {
-					std::lock_guard<std::mutex> pq_lock(peer_queue_lock);
-					peer_queue.pop();
-				}
-			}
-			catch (const mysqlpp::BadQuery &er) {
-				logger->error("Query error: " + std::string(er.what()) + " in flush peers with a qlength: " + std::to_string(peer_queue.front().size()) + " queue size: " + std::to_string(peer_queue.size()));
-				sleep(3);
-				continue;
-			} catch (const mysqlpp::Exception &er) {
-				logger->error("Query error: " + std::string(er.what()) + " in flush peers with a qlength: " + std::to_string(peer_queue.front().size()) + " queue size: " + std::to_string(peer_queue.size()));
-				sleep(3);
-				continue;
-			}
-		}
-	}
-	catch (const mysqlpp::Exception &er) {
-		logger->error("MySQL error in flush_peers: " + std::string(er.what()));
-	}
-	p_active = false;
-}
-
-void mysql::do_flush_snatches() {
-	s_active = true;
-	try {
-		mysqlpp::Connection c(mysql_db.c_str(), mysql_host.c_str(), mysql_username.c_str(), mysql_password.c_str(), 0);
-		while (snatch_queue.size() > 0) {
-			try {
-				std::string sql = snatch_queue.front();
-				mysqlpp::Query query = c.query(sql);
-				if (!query.exec()) {
-					logger->info("Snatch flush failed (" + std::to_string(snatch_queue.size()) + " remain)");
-					sleep(3);
-					continue;
-				} else {
-					std::lock_guard<std::mutex> sq_lock(snatch_queue_lock);
-					snatch_queue.pop();
-				}
-			}
-			catch (const mysqlpp::BadQuery &er) {
-				logger->error("Query error: " + std::string(er.what()) + " in flush snatches with a qlength: " + std::to_string(snatch_queue.front().size()) + " queue size: " + std::to_string(snatch_queue.size()));
-				sleep(3);
-				continue;
-			} catch (const mysqlpp::Exception &er) {
-				logger->error("Query error: " + std::string(er.what()) + " in flush snatches with a qlength: " + std::to_string(snatch_queue.front().size()) + " queue size: " + std::to_string(snatch_queue.size()));
-				sleep(3);
-				continue;
-			}
-		}
-	}
-	catch (const mysqlpp::Exception &er) {
-		logger->error("MySQL error in flush_snatches: " + std::string(er.what()));
-	}
-	s_active = false;
-}
-
-void mysql::do_flush_tokens() {
-	tok_active = true;
-	try {
-		mysqlpp::Connection c(mysql_db.c_str(), mysql_host.c_str(), mysql_username.c_str(), mysql_password.c_str(), 0);
-		while (token_queue.size() > 0) {
-			try {
-				std::string sql = token_queue.front();
-				mysqlpp::Query query = c.query(sql);
-				if (!query.exec()) {
-					logger->info("Token flush failed (" + std::to_string(token_queue.size()) + " remain)");
-					sleep(3);
-					continue;
-				} else {
-					std::lock_guard<std::mutex> tq_lock(token_queue_lock);
-					token_queue.pop();
-				}
-			}
-			catch (const mysqlpp::BadQuery &er) {
-				logger->error("Query error: " + std::string(er.what()) + " in flush tokens with a qlength: " + std::to_string(token_queue.front().size()) + " queue size: " + std::to_string(token_queue.size()));
-				sleep(3);
-				continue;
-			} catch (const mysqlpp::Exception &er) {
-				logger->error("Query error: " + std::string(er.what()) + " in flush tokens with a qlength: " + std::to_string(token_queue.front().size()) + " queue size: " + std::to_string(token_queue.size()));
+				logger->error("Query error: " + std::string(er.what()) + " in flush tokens with a qlength: " + std::to_string(queue.front().size()) + " queue size: " + std::to_string(queue.size()));
 				sleep(3);
 				continue;
 			}
@@ -588,5 +453,5 @@ void mysql::do_flush_tokens() {
 	catch (const mysqlpp::Exception &er) {
 		logger->error("MySQL error in flush_tokens: " + std::string(er.what()));
 	}
-	tok_active = false;
+	active = false;
 }
