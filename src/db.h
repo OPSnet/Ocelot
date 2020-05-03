@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <queue>
 #include <mutex>
+#include <fstream>
 #include "config.h"
 
 class mysql {
@@ -56,6 +57,11 @@ class mysql {
 		void flush_tokens();
 		void clear_peer_data();
 
+		mysqlpp::Query do_query(mysqlpp::Connection&, const std::string&);
+		mysqlpp::Query do_query(const std::string &sql) {
+			return do_query(conn, sql);
+		}
+
 	public:
 		bool verbose_flush;
 
@@ -80,6 +86,9 @@ class mysql {
 		std::mutex torrent_list_mutex;
 		std::mutex user_list_mutex;
 		std::mutex whitelist_mutex;
+
+		std::mutex query_dump_mutex;
+		std::ofstream query_dump;
 };
 
 #pragma GCC visibility pop

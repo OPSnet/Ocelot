@@ -19,6 +19,8 @@ mysql_host          =
 mysql_username      = 
 mysql_password      = 
 mysql_db            = 
+# All queries are written to this file, if writable. Will be created if necessary.
+mysql_query_dump    = /tmp/ocelot.sql
 
 # The passwords must be 32 characters and match the Gazelle config
 report_password     = 00000000000000000000000000000000
