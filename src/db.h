@@ -11,13 +11,32 @@
 
 class mysql {
 	private:
+		class query_buffer {
+			std::string buf;
+			const mysql &db;
+		public:
+			query_buffer(const mysql& db_):db(db_) {}
+			query_buffer& operator+=(const std::string& chars) {
+				if (!db.readonly) {
+					if (!buf.empty()) {
+						buf += ',';
+					}
+					buf += chars;
+				}
+				return *this;
+			}
+			void clear() { buf.clear(); }
+			bool empty() const { return buf.empty(); }
+			const std::string& str() const { return buf; }
+		};
+		friend class query_buffer;
 		mysqlpp::Connection conn;
-		std::string update_user_buffer;
-		std::string update_torrent_buffer;
-		std::string update_heavy_peer_buffer;
-		std::string update_light_peer_buffer;
-		std::string update_snatch_buffer;
-		std::string update_token_buffer;
+		query_buffer update_user_buffer;
+		query_buffer update_torrent_buffer;
+		query_buffer update_heavy_peer_buffer;
+		query_buffer update_light_peer_buffer;
+		query_buffer update_snatch_buffer;
+		query_buffer update_token_buffer;
 
 		std::queue<std::string> user_queue;
 		std::queue<std::string> torrent_queue;
@@ -43,11 +62,7 @@ class mysql {
 		void load_config(config * conf);
 		void load_tokens(torrent_list &torrents);
 
-		void do_flush_users();
-		void do_flush_torrents();
-		void do_flush_snatches();
-		void do_flush_peers();
-		void do_flush_tokens();
+		void do_flush(std::queue<std::string> &queue, std::mutex &mtx, bool &active);
 
 		void flush_users();
 		void flush_torrents();

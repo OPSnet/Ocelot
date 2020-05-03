@@ -5,13 +5,6 @@
 #include "config.h"
 #include "misc_functions.h"
 
-confval::confval() {
-	bool_val = 0;
-	uint_val = 0;
-	str_val = "";
-	val_type = CONF_NONEXISTENT;
-}
-
 confval::confval(bool value) {
 	bool_val = value;
 	val_type = CONF_BOOL;
@@ -51,7 +44,6 @@ void confval::set(const std::string &value) {
 
 config::config() {
 	init();
-	dummy_setting = new confval(); // Safety value to use if we're accessing nonexistent settings
 }
 
 void config::init() {
@@ -100,8 +92,8 @@ void config::init() {
 confval * config::get(const std::string &setting_name) {
 	const auto setting = settings.find(setting_name);
 	if (setting == settings.end()) {
-		 spdlog::get("logger")->info("WARNING: Unrecognized setting '" + setting_name + "'");
-		return dummy_setting;
+		 spdlog::get("logger")->info("WARNING: Unrecognized setting '{}'", setting_name);
+		return &dummy_setting;
 	}
 	return &setting->second;
 }
@@ -143,7 +135,7 @@ void config::reload() {
 	const std::string conf_file_path(get_str("conf_file_path"));
 	std::ifstream conf_file(conf_file_path);
 	if (conf_file.fail()) {
-		spdlog::get("logger")->error("Config file '" + conf_file_path + "' couldn't be opened");
+		spdlog::get("logger")->error("Config file '{}' couldn't be opened", conf_file_path);
 	} else {
 		init();
 		load(conf_file);
