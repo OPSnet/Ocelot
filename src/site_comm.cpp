@@ -61,7 +61,7 @@ void site_comm::flush_tokens()
 	std::lock_guard<std::mutex> lock(expire_queue_lock);
 	size_t qsize = token_queue.size();
 	if (verbose_flush || qsize > 0) {
-		logger->info("Token expire queue size: " + std::to_string(qsize));
+		logger->info("Token expire queue size: {}", qsize);
 	}
 	if (expire_token_buffer.empty()) {
 		return;
@@ -126,11 +126,11 @@ void site_comm::do_flush_tokens()
 				std::lock_guard<std::mutex> lock(expire_queue_lock);
 				token_queue.pop();
 			} else {
-				logger->error("Response returned with status code " + std::to_string(status_code) + " when trying to expire a token!");
+				logger->error("Response returned with status code {} when trying to expire a token!", status_code);
 			}
 		}
 	} catch (std::exception &er) {
-		logger->error("Exception: " + std::string(er.what()));
+		logger->error("Exception: {}", er.what());
 	}
 	t_active = false;
 }

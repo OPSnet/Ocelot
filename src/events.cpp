@@ -50,7 +50,7 @@ void connection_mother::reload_config(config * conf) {
 	unsigned int old_max_connections = max_connections;
 	load_config(conf);
 	if (old_listen_port != listen_port) {
-		logger->info("Changing listen port from " + std::to_string(old_listen_port) +" to " + std::to_string(listen_port));
+		logger->info("Changing listen port from {} to {}", old_listen_port, listen_port);
 		int new_listen_socket = create_listen_socket();
 		if (new_listen_socket != 0) {
 			listen_event.stop();
@@ -73,7 +73,7 @@ int connection_mother::create_listen_socket() {
 	// Stop old sockets from hogging the port
 	int yes = 1;
 	if (setsockopt(new_listen_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
-		logger->error("Could not reuse socket: " + std::string(strerror(errno)));
+		logger->error("Could not reuse socket: {}", strerror(errno));
 		return 0;
 	}
 
@@ -85,24 +85,24 @@ int connection_mother::create_listen_socket() {
 
 	// Bind
 	if (bind(new_listen_socket, (sockaddr *) &address, sizeof(address)) == -1) {
-		logger->error("Bind failed: " + std::string(strerror(errno)));
+		logger->error("Bind failed: {}", strerror(errno));
 		return 0;
 	}
 
 	// Listen
 	if (listen(new_listen_socket, max_connections) == -1) {
-		logger->error("Listen failed: " + std::string(strerror(errno)));
+		logger->error("Listen failed: {}", strerror(errno));
 		return 0;
 	}
 
 	// Set non-blocking
 	int flags = fcntl(new_listen_socket, F_GETFL);
 	if (flags == -1) {
-		logger->error("Could not get socket flags: " + std::string(strerror(errno)));
+		logger->error("Could not get socket flags: {}", strerror(errno));
 		return 0;
 	}
 	if (fcntl(new_listen_socket, F_SETFL, flags | O_NONBLOCK) == -1) {
-		logger->error("Could not set non-blocking: " + std::string(strerror(errno)));
+		logger->error("Could not set non-blocking: {}", strerror(errno));
 		return 0;
 	}
 
@@ -110,7 +110,7 @@ int connection_mother::create_listen_socket() {
 }
 
 void connection_mother::run() {
-	logger->info("Sockets up on port " + std::to_string(listen_port) + ", starting event loop!");
+	logger->info("Sockets up on port {}, starting event loop!", listen_port);
 	ev_loop(ev_default_loop(0), 0);
 }
 
@@ -137,7 +137,7 @@ connection_middleman::connection_middleman(int &listen_socket, worker * new_work
 	auto logger = spdlog::get("logger");
 	connect_sock = accept(listen_socket, NULL, NULL);
 	if (connect_sock == -1) {
-		logger->error("Accept failed, errno " + std::to_string(errno) + ": " + std::string(strerror(errno)));
+		logger->error("Accept failed, errno {}: {}", errno, strerror(errno));
 		delete this;
 		return;
 	}
