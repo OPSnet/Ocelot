@@ -15,7 +15,10 @@
 
 #define DB_LOCK_TIMEOUT 50
 
-mysql::mysql(config * conf) : u_active(false), t_active(false), p_active(false), s_active(false), tok_active(false) {
+mysql::mysql(config * conf) : update_user_buffer(*this), update_torrent_buffer(*this),
+		update_heavy_peer_buffer(*this), update_light_peer_buffer(*this),
+		update_snatch_buffer(*this), update_token_buffer(*this),
+		u_active(false), t_active(false), p_active(false), s_active(false), tok_active(false) {
 	logger = spdlog::get("logger");
 	load_config(conf);
 	if (mysql_db.empty()) {
@@ -278,10 +281,6 @@ void mysql::flush() {
 }
 
 void mysql::flush_users() {
-	if (readonly) {
-		update_user_buffer.clear();
-		return;
-	}
 	std::string sql;
 	std::lock_guard<std::mutex> uq_lock(user_queue_lock);
 	size_t qsize = user_queue.size();
@@ -303,10 +302,6 @@ void mysql::flush_users() {
 
 void mysql::flush_torrents() {
 	std::lock_guard<std::mutex> tb_lock(torrent_buffer_lock);
-	if (readonly) {
-		update_torrent_buffer.clear();
-		return;
-	}
 	std::string sql;
 	std::lock_guard<std::mutex> tq_lock(torrent_queue_lock);
 	size_t qsize = torrent_queue.size();
@@ -332,10 +327,6 @@ void mysql::flush_torrents() {
 }
 
 void mysql::flush_snatches() {
-	if (readonly) {
-		update_snatch_buffer.clear();
-		return;
-	}
 	std::string sql;
 	std::lock_guard<std::mutex> sq_lock(snatch_queue_lock);
 	size_t qsize = snatch_queue.size();
@@ -355,11 +346,6 @@ void mysql::flush_snatches() {
 }
 
 void mysql::flush_peers() {
-	if (readonly) {
-		update_light_peer_buffer.clear();
-		update_heavy_peer_buffer.clear();
-		return;
-	}
 	std::string sql;
 	std::lock_guard<std::mutex> pq_lock(peer_queue_lock);
 	size_t qsize = peer_queue.size();
@@ -412,10 +398,6 @@ void mysql::flush_peers() {
 }
 
 void mysql::flush_tokens() {
-	if (readonly) {
-		update_token_buffer.clear();
-		return;
-	}
 	std::string sql;
 	std::lock_guard<std::mutex> tq_lock(token_queue_lock);
 	size_t qsize = token_queue.size();

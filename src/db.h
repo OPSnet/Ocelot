@@ -13,19 +13,23 @@ class mysql {
 	private:
 		class query_buffer {
 			std::string buf;
+			const mysql &db;
 		public:
-			query_buffer() {}
+			query_buffer(const mysql& db_):db(db_) {}
 			query_buffer& operator+=(const std::string& chars) {
-				if (!buf.empty()) {
-					buf += ',';
+				if (!db.readonly) {
+					if (!buf.empty()) {
+						buf += ',';
+					}
+					buf += chars;
 				}
-				buf += chars;
 				return *this;
 			}
 			void clear() { buf.clear(); }
 			bool empty() const { return buf.empty(); }
 			const std::string& str() const { return buf; }
 		};
+		friend class query_buffer;
 		mysqlpp::Connection conn;
 		query_buffer update_user_buffer;
 		query_buffer update_torrent_buffer;
