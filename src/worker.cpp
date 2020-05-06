@@ -21,7 +21,7 @@
 #include "user.h"
 
 //---------- Worker - does stuff with input
-worker::worker(config * conf_obj, torrent_list &torrents, user_list &users, std::vector<std::string> &_whitelist, mysql * db_obj, site_comm * sc) :
+worker::worker(config * conf_obj, torrent_list &torrents, user_list &users, std::unordered_set<peerid_t> &_whitelist, mysql * db_obj, site_comm * sc) :
 	conf(conf_obj), db(db_obj), s_comm(sc), torrents_list(torrents), users_list(users), whitelist(_whitelist), status(OPEN), reaper_active(false)
 {
 	logger = spdlog::get("logger");
@@ -295,30 +295,25 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 	if (peer_id_iterator == params.end()) {
 		return error("No peer ID", client_opts);
 	}
-	const std::string peer_id = hex_decode(peer_id_iterator->second);
-	if (peer_id.length() != 20) {
+	peerid_t peer_id;
+	if (!hex_decode(peer_id, peer_id_iterator->second)) {
 		return error("Invalid peer ID", client_opts);
 	}
 
-	std::unique_lock<std::mutex> wl_lock(db->whitelist_mutex);
-	if (whitelist.size() > 0) {
-		bool found = false; // Found client in whitelist?
-		for (unsigned int i = 0; i < whitelist.size(); i++) {
-			if (peer_id.compare(0, whitelist[i].length(), whitelist[i]) == 0) {
-				found = true;
-				break;
+	{
+		std::unique_lock<std::mutex> wl_lock(db->whitelist_mutex);
+		if (!whitelist.empty()) {
+			auto it = whitelist.find(peer_id);
+			if (it == std::end(whitelist)) {
+				return error("Your client is not on the whitelist", client_opts);
 			}
 		}
-		if (!found) {
-			return error("Your client is not on the whitelist", client_opts);
-		}
 	}
-	wl_lock.unlock();
 
 	std::stringstream peer_key_stream;
 	peer_key_stream << peer_id[12 + (tor.id & 7)] // "Randomize" the element order in the peer map by prefixing with a peer id byte
-		<< userid // Include user id in the key to lower chance of peer id collisions
-		<< peer_id;
+		<< userid; // Include user id in the key to lower chance of peer id collisions
+	peer_key_stream.write(reinterpret_cast<const char*>(peer_id.data()), peer_id.size());
 	const std::string peer_key(peer_key_stream.str());
 
 	if (params["event"] == "completed") {
@@ -952,32 +947,30 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
 			logger->info("Updated user " + passkey);
 		}
 	} else if (params["action"] == "add_whitelist") {
-		std::string peer_id = params["peer_id"];
-		std::lock_guard<std::mutex> wl_lock(db->whitelist_mutex);
-		whitelist.push_back(peer_id);
-		logger->info("Whitelisted " + peer_id);
+		peerid_t peer_id;
+		if (params.get_array(peer_id, "peer_id")) {
+			std::lock_guard<std::mutex> wl_lock(db->whitelist_mutex);
+			whitelist.insert(peer_id);
+			logger->info("Whitelisted {}", peer_id);
+		}
 	} else if (params["action"] == "remove_whitelist") {
-		std::string peer_id = params["peer_id"];
-		std::lock_guard<std::mutex> wl_lock(db->whitelist_mutex);
-		for (unsigned int i = 0; i < whitelist.size(); i++) {
-			if (whitelist[i].compare(peer_id) == 0) {
-				whitelist.erase(whitelist.begin() + i);
-				break;
-			}
+		peerid_t peer_id;
+		if (params.get_array(peer_id, "peer_id")) {
+			std::lock_guard<std::mutex> wl_lock(db->whitelist_mutex);
+			whitelist.erase(peer_id);
+			logger->info("De-whitelisted {}", peer_id);
 		}
-		logger->info("De-whitelisted " + peer_id);
 	} else if (params["action"] == "edit_whitelist") {
-		std::string new_peer_id = params["new_peer_id"];
-		std::string old_peer_id = params["old_peer_id"];
-		std::lock_guard<std::mutex> wl_lock(db->whitelist_mutex);
-		for (unsigned int i = 0; i < whitelist.size(); i++) {
-			if (whitelist[i].compare(old_peer_id) == 0) {
-				whitelist.erase(whitelist.begin() + i);
-				break;
-			}
+		peerid_t new_peer_id, old_peer_id;
+		if (params.get_array(new_peer_id, "new_peer_id") &&
+				params.get_array(old_peer_id, "old_peer_id")) {
+			std::lock_guard<std::mutex> wl_lock(db->whitelist_mutex);
+			whitelist.erase(old_peer_id);
+			whitelist.insert(new_peer_id);
+			logger->info("Edited whitelist item from {} to {}", old_peer_id, new_peer_id);
+		} else {
+			logger->warn("edit_whitelist request received with invalid parameters");
 		}
-		whitelist.push_back(new_peer_id);
-		logger->info("Edited whitelist item from " + old_peer_id + " to " + new_peer_id);
 	} else if (params["action"] == "update_announce_interval") {
 		const std::string interval = params["new_announce_interval"];
 		conf->set("announce_interval", interval);

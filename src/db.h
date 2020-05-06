@@ -5,9 +5,11 @@
 #include <spdlog/spdlog.h>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <queue>
 #include <mutex>
 #include "config.h"
+#include "ocelot.h"
 
 class mysql {
 	private:
@@ -64,13 +66,13 @@ class mysql {
 		bool connected();
 		void load_torrents(torrent_list &torrents);
 		void load_users(user_list &users);
-		void load_whitelist(std::vector<std::string> &whitelist);
+		void load_whitelist(std::unordered_set<peerid_t> &whitelist);
 
 		void record_user(const std::string &record); // (id,uploaded_change,downloaded_change)
 		void record_torrent(const std::string &record); // (id,seeders,leechers,snatched_change,balance)
 		void record_snatch(const std::string &record, const std::string &ip); // (uid,fid,tstamp)
-		void record_peer(const std::string &record, const std::string &ip, const std::string &peer_id, const std::string &useragent); // (uid,fid,active,peerid,useragent,ip,uploaded,downloaded,upspeed,downspeed,left,timespent,announces,tstamp)
-		void record_peer(const std::string &record, const std::string &peer_id); // (fid,peerid,timespent,announces,tstamp)
+		void record_peer(const std::string &record, const std::string &ip, const peerid_t &peer_id, const std::string &useragent); // (uid,fid,active,peerid,useragent,ip,uploaded,downloaded,upspeed,downspeed,left,timespent,announces,tstamp)
+		void record_peer(const std::string &record, const peerid_t &peer_id); // (fid,peerid,timespent,announces,tstamp)
 		void record_token(const std::string &record);
 
 		void flush();
