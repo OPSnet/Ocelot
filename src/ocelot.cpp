@@ -12,6 +12,7 @@
 #include "db.h"
 #include "worker.h"
 #include "events.h"
+#include <unordered_set>
 
 static connection_mother *mother;
 static worker *work;
@@ -157,7 +158,7 @@ int main(int argc, char **argv) {
 
 	user_list users_list;
 	torrent_list torrents_list;
-	std::vector<std::string> whitelist;
+	std::unordered_set<peerid_t> whitelist;
 	db->load_users(users_list);
 	db->load_torrents(torrents_list);
 	db->load_whitelist(whitelist);

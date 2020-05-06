@@ -9,9 +9,31 @@
 #include <memory>
 #include <atomic>
 #include <time.h>
+#include <array>
+#include <cstdint>
+
+#include <spdlog/fmt/ostr.h>
 
 typedef uint32_t torid_t;
 typedef uint32_t userid_t;
+
+struct peerid_t : public std::array<std::uint8_t, 20> {
+	template<typename OStream>
+	friend OStream &operator<<(OStream &os, const peerid_t &peerid)
+	{
+		fmt::print(os, "{:.20}", peerid.data());
+		return os;
+	}
+};
+
+namespace std {
+template <> struct hash<peerid_t> {
+std::size_t operator()(const peerid_t &prid) const noexcept {
+	auto ptr = reinterpret_cast<const std::uint32_t *>(prid.data());
+	return ptr[0] ^ ptr[1] ^ ptr[2] ^ ptr[3] ^ ptr[4];
+}
+};
+}
 
 class user;
 typedef std::shared_ptr<user> user_ptr;
@@ -87,7 +109,19 @@ typedef struct {
 
 typedef std::unordered_map<std::string, torrent> torrent_list;
 typedef std::unordered_map<std::string, user_ptr> user_list;
-typedef std::unordered_map<std::string, std::string> params_type;
+
+struct params_type : public std::unordered_map<std::string, std::string> {
+	template<std::size_t N>
+	bool get_array(std::array<std::uint8_t, N> &out, const std::string &key) const {
+		auto it = find(key);
+		if (it != end() && it->second.length() == N) {
+			std::copy(std::begin(it->second), std::end(it->second), std::begin(out));
+			return true;
+		} else {
+			return false;
+		}
+	}
+};
 
 struct stats_t {
 	std::atomic<uint32_t> open_connections;

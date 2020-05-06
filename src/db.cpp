@@ -15,6 +15,12 @@
 
 #define DB_LOCK_TIMEOUT 50
 
+namespace {
+std::ostream& operator<<(mysqlpp::quote_type1 m, const peerid_t &peer_id) {
+	return (m << std::string(std::begin(peer_id), std::end(peer_id)));
+}
+}
+
 mysql::mysql(config * conf) : u_active(false), t_active(false), p_active(false), s_active(false), tok_active(false) {
 	logger = spdlog::get("logger");
 	load_config(conf);
@@ -210,7 +216,7 @@ void mysql::load_tokens(torrent_list &torrents) {
 }
 
 
-void mysql::load_whitelist(std::vector<std::string> &whitelist) {
+void mysql::load_whitelist(std::unordered_set<peerid_t> &whitelist) {
 	mysqlpp::Query query = conn.query("SELECT peer_id FROM xbt_client_whitelist;");
 	try {
 		mysqlpp::StoreQueryResult res = query.store();
@@ -218,9 +224,16 @@ void mysql::load_whitelist(std::vector<std::string> &whitelist) {
 		std::lock_guard<std::mutex> wl_lock(whitelist_mutex);
 		whitelist.clear();
 		for (size_t i = 0; i<num_rows; i++) {
-			std::string peer_id;
-			res[i][0].to_string(peer_id);
-			whitelist.push_back(peer_id);
+			auto &cell = res[i][0];
+			peerid_t id;
+			const auto expected_len = id.size();
+			if (cell.size() == expected_len) {
+				std::copy(std::begin(cell), std::end(cell), std::begin(id));
+				whitelist.insert(std::move(id));
+			} else {
+				logger->warn("Peer ID length in row " + std::to_string(i) +
+							 " not equal to " + std::to_string(expected_len) + ", ignoring");
+			}
 		}
 	} catch (const mysqlpp::BadQuery &er) {
 		logger->error("Query error in load_whitelist: " + std::string(er.what()));
@@ -255,7 +268,7 @@ void mysql::record_torrent(const std::string &record) {
 	update_torrent_buffer += record;
 }
 
-void mysql::record_peer(const std::string &record, const std::string &ip, const std::string &peer_id, const std::string &useragent) {
+void mysql::record_peer(const std::string &record, const std::string &ip, const peerid_t &peer_id, const std::string &useragent) {
 	if (update_heavy_peer_buffer != "") {
 		update_heavy_peer_buffer += ",";
 	}
@@ -264,7 +277,7 @@ void mysql::record_peer(const std::string &record, const std::string &ip, const 
 
 	update_heavy_peer_buffer += q.str();
 }
-void mysql::record_peer(const std::string &record, const std::string &peer_id) {
+void mysql::record_peer(const std::string &record, const peerid_t &peer_id) {
 	if (update_light_peer_buffer != "") {
 		update_light_peer_buffer += ",";
 	}
