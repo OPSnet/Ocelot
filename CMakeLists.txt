@@ -12,7 +12,7 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/CMake")
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -march=native -O2 -fvisibility=hidden -fvisibility-inlines-hidden -fomit-frame-pointer -fno-ident -Wall -Wfatal-errors")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden -fvisibility-inlines-hidden -Wall -Wfatal-errors")
 
 message(STATUS "CMAKE_MODULE_PATH='${CMAKE_MODULE_PATH}'")
 find_package(Jemalloc)
@@ -66,12 +66,10 @@ SET(LINK_LIBRARIES
 
 if (USE_JEMALLOC)
     message(STATUS "Build with jemalloc")
-    list(APPEND ${LINK_LIBRARIES} ${JEMALLOC_LIBRARY})
-    SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -ljemalloc")
+    list(APPEND LINK_LIBRARIES ${JEMALLOC_LIBRARY})
 elseif (USE_TCMALLOC)
     message(STATUS "Build with tcmalloc")
-    list(APPEND ${LINK_LIBRARIES} ${TCMALLOC_LIBRARY})
-    SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -ltcmalloc")
+    list(APPEND LINK_LIBRARIES ${TCMALLOC_LIBRARY})
 endif()
 
 target_link_libraries(
