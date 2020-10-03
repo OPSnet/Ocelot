@@ -63,6 +63,7 @@ void config::init() {
 	add("connection_timeout", 10u);
 	add("keepalive_timeout", 0u);
 	add("daemonize", false);
+	add("enable_ipv6", false);
 
 	// Tracker requests
 	add("announce_interval", 1800u);

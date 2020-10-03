@@ -65,7 +65,7 @@ bool worker::shutdown() {
 	}
 }
 
-std::string worker::work(const std::string &input, std::string &ip, client_opts_t &client_opts) {
+std::string worker::work(const std::string &input, std::string &ip, uint16_t &ip_ver, client_opts_t &client_opts) {
 	unsigned int input_length = input.length();
 
 	//---------- Parse request - ugly but fast. Using substr exploded.
@@ -261,13 +261,13 @@ std::string worker::work(const std::string &input, std::string &ip, client_opts_
 				return error("Unregistered torrent", client_opts);
 			}
 		}
-		return announce(input, tor->second, u, params, headers, ip, client_opts);
+		return announce(input, tor->second, u, params, headers, ip, ip_ver, client_opts);
 	} else {
 		return scrape(infohashes, headers, client_opts);
 	}
 }
 
-std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u, params_type &params, params_type &headers, std::string &ip, client_opts_t &client_opts) {
+std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u, params_type &params, params_type &headers, std::string &ip, uint16_t &ip_ver, client_opts_t &client_opts) {
 	cur_time = time(NULL);
 
 	if (params["compact"] != "1") {
@@ -287,9 +287,17 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 	bool stopped_torrent = false; // Was the torrent just stopped?
 	bool expire_token = false; // Whether or not to expire a token after torrent completion
 	bool peer_changed = false; // Whether or not the peer is new or has changed since the last announcement
-	bool invalid_ip = false;
 	bool inc_l = false, inc_s = false, dec_l = false, dec_s = false;
 	userid_t userid = u->get_id();
+	std::string ipv4 = "", ipv6 = "", public_ipv4 = "", public_ipv6 = "";
+
+	if (ip_ver == 4) {
+		ipv4 = ip;
+		public_ipv4 = ip;
+	} else {
+		ipv6 = ip;
+		public_ipv6 = ip;
+	}
 
 	params_type::const_iterator peer_id_iterator = params.find("peer_id");
 	if (peer_id_iterator == params.end()) {
@@ -455,53 +463,108 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 	}
 	p->left = left;
 
-	params_type::const_iterator param_ip = params.find("ip");
+	auto param_ip = params.find("ip");
 	if (param_ip != params.end()) {
-		ip = param_ip->second;
-	} else if ((param_ip = params.find("ipv4")) != params.end()) {
-		ip = param_ip->second;
-	} else {
-		auto head_itr = headers.find("x-forwarded-for");
-		if (head_itr != headers.end()) {
-			size_t ip_end_pos = head_itr->second.find(',');
-			if (ip_end_pos != std::string::npos) {
-				ip = head_itr->second.substr(0, ip_end_pos);
-			} else {
-				ip = head_itr->second;
-			}
+		struct addrinfo hint, *res = NULL;
+		memset(&hint, '\0', sizeof hint);
+
+		hint.ai_family = PF_UNSPEC;
+		hint.ai_flags = AI_NUMERICHOST;
+
+		getaddrinfo(param_ip->second.c_str(), NULL, &hint, &res);
+		if (res->ai_family == AF_INET) {
+			ipv4 = param_ip->second;
+		} else if (res->ai_family == AF_INET6) {
+			ipv6 = param_ip->second;
 		}
+		freeaddrinfo(res);
+	}
+	if ((param_ip = params.find("ipv4")) != params.end()) {
+		ipv4 = param_ip->second;
+	}
+	if ((param_ip = params.find("ipv6")) != params.end()) {
+		ipv6 = param_ip->second;
+	}
+
+	auto header_ip = headers.find("x-forwarded-for");
+	if (header_ip != headers.end()) {
+		std::string ip = header_ip->second;
+		ip = ip.substr(0, ip.find(','));
+
+		struct addrinfo hint, *res = NULL;
+		memset(&hint, '\0', sizeof hint);
+
+		hint.ai_family = PF_UNSPEC;
+		hint.ai_flags = AI_NUMERICHOST;
+
+		int err = getaddrinfo(ip.c_str(), NULL, &hint, &res);
+		if (err != 0) {
+			// TODO: handle err on x-forwarded-for header
+		} else {
+			if (res->ai_family == AF_INET) {
+				ipv4 = ip;
+				public_ipv4=ip;
+			} else if (res->ai_family == AF_INET6) {
+				ipv6 = ip;
+				public_ipv6=ip;
+			}
+			freeaddrinfo(res);
+		}
+	}
+
+	struct sockaddr_in sa;
+	if (inet_pton(AF_INET, hex_decode(ipv4).c_str(), &(sa.sin_addr)) != -1 && !ipv4.empty()) {
+		if (!ipv4_is_public(sa.sin_addr)) {
+			ipv4.clear();
+		}
+	}
+	struct sockaddr_in public_sa;
+	if (inet_pton(AF_INET, hex_decode(public_ipv4).c_str(), &(public_sa.sin_addr)) != -1 && !public_ipv4.empty()) {
+		if (!ipv4_is_public(public_sa.sin_addr)) {
+			public_ipv4.clear();
+		}
+	}
+	struct sockaddr_in6 sa6;
+	if (inet_pton(AF_INET6, hex_decode(ipv6).c_str(), &(sa6.sin6_addr)) != -1 && !ipv6.empty()) {
+		if (!ipv6_is_public(sa6.sin6_addr)) {
+			ipv6.clear();
+		}
+	}
+	struct sockaddr_in6 public_sa6;
+	if (inet_pton(AF_INET6, hex_decode(public_ipv6).c_str(), &(public_sa6.sin6_addr)) != -1 && !public_ipv6.empty()) {
+		if (!ipv6_is_public(public_sa6.sin6_addr)) {
+			public_ipv6.clear();
+		}
+	}
+
+	if (ipv4.empty() && ipv6.empty()) {
+		return error("Invalid IP detected", client_opts);
 	}
 
 	uint16_t port = strtoint32(params["port"]) & 0xFFFF;
 	// Generate compact ip/port string
-	if (inserted || port != p->port || ip != p->ip) {
+	if (inserted || port != p->port || ipv4 != p->ipv4 || ipv6 != p->ipv6) {
 		p->port = port;
-		p->ip = ip;
-		p->ip_port = "";
-		char x = 0;
-		for (size_t pos = 0, end = ip.length(); pos < end; pos++) {
-			if (ip[pos] == '.') {
-				p->ip_port.push_back(x);
-				x = 0;
-				continue;
-			} else if (!isdigit(ip[pos])) {
-				invalid_ip = true;
-				break;
-			}
-			x = x * 10 + ip[pos] - '0';
+		p->ipv4 = "";
+		p->ipv6 = "";
+		p->ipv4_port = "";
+		p->ipv6_port = "";
+
+		if (!ipv4.empty()) {
+			p->ipv4 = ipv4;
+			// IP+Port is 6 bytes for IPv4
+			p->ipv4_port = ipv4;
+			p->ipv4_port.push_back(port >> 8);
+			p->ipv4_port.push_back(port & 0xFF);
 		}
-		if (!invalid_ip) {
-			p->ip_port.push_back(x);
-			p->ip_port.push_back(port >> 8);
-			p->ip_port.push_back(port & 0xFF);
+
+		if (!ipv6.empty()) {
+			p->ipv6 = ipv6;
+			// IP+Port is 18 bytes for IPv6
+			p->ipv6_port = ipv6;
+			p->ipv6_port.push_back(port >> 8);
+			p->ipv6_port.push_back(port & 0xFF);
 		}
-		if (p->ip_port.length() != 6) {
-			p->ip_port.clear();
-			invalid_ip = true;
-		}
-		p->invalid_ip = invalid_ip;
-	} else {
-		invalid_ip = p->invalid_ip;
 	}
 
 	// Update the peer
@@ -511,15 +574,19 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 	// Add peer data to the database
 	std::stringstream record;
 	if (peer_changed) {
-		record << '(' << userid << ',' << tor.id << ',' << active << ',' << uploaded << ',' << downloaded << ',' << upspeed << ',' << downspeed << ',' << left << ',' << corrupt << ',' << (cur_time - p->first_announced) << ',' << p->announces << ',';
+		record << '(' << userid << ',' << tor.id << ',' << active << ',' << uploaded << ','
+			   << downloaded << ',' << upspeed << ',' << downspeed << ',' << left << ','
+			   << corrupt << ',' << (cur_time - p->first_announced) << ',' << p->announces << ',';
 		std::string record_str = record.str();
-		std::string record_ip;
+		std::string record_ipv4, record_ipv6;
 		if (u->is_protected()) {
-			record_ip = "";
+			record_ipv4 = "";
+			record_ipv6 = "";
 		} else {
-			record_ip = ip;
+			record_ipv4 = ipv4;
+			record_ipv6 = ipv6;
 		}
-		db->record_peer(record_str, record_ip, peer_id, headers["user-agent"]);
+		db->record_peer(record_str, record_ipv4, record_ipv6, peer_id, headers["user-agent"]);
 	} else {
 		record << '(' << userid << ',' << tor.id << ',' << (cur_time - p->first_announced) << ',' << p->announces << ',';
 		std::string record_str = record.str();
@@ -548,15 +615,17 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 		tor.completed++;
 
 		std::stringstream record;
-		std::string record_ip;
+		std::string record_ipv4, record_ipv6;
 		if (u->is_protected()) {
-			record_ip = "";
+			record_ipv4 = "";
+			record_ipv6 = "";
 		} else {
-			record_ip = ip;
+			record_ipv4 = ipv4;
+			record_ipv6 = ipv6;
 		}
 		record << '(' << userid << ',' << tor.id << ',' << cur_time;
 		std::string record_str = record.str();
-		db->record_snatch(record_str, record_ip);
+		db->record_snatch(record_str, record_ipv4, record_ipv6);
 
 		// User is a seeder now!
 		if (!inserted) {
@@ -576,16 +645,18 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 	}
 
 	std::string peers;
+	std::string peers6;
 	if (numwant > 0) {
 		peers.reserve(numwant*6);
+		peers6.reserve(numwant*18);
 		unsigned int found_peers = 0;
 		if (left > 0) { // Show seeders to leechers first
-			if (tor.seeders.size() > 0) {
+			if (!tor.seeders.empty()) {
 				// We do this complicated stuff to cycle through the seeder list, so all seeders will get shown to leechers
 
 				// Find out where to begin in the seeder list
 				peer_list::const_iterator i;
-				if (tor.last_selected_seeder == "") {
+				if (tor.last_selected_seeder.empty()) {
 					i = tor.seeders.begin();
 				} else {
 					i = tor.seeders.find(tor.last_selected_seeder);
@@ -612,12 +683,24 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 						i = tor.seeders.begin();
 					}
 					// Don't show users themselves
-					if (i->second.user->is_deleted() || i->second.user->get_id() == userid || !i->second.visible) {
+					if (
+						(i->second.ipv4_port == p->ipv4_port && !p->ipv4_port.empty())
+						|| (i->second.ipv6_port == p->ipv6_port && !p->ipv6_port.empty())
+						|| i->second.user->is_deleted()
+						|| i->second.user->get_id() == userid
+						|| !i->second.visible
+					) {
 						++i;
 						continue;
 					}
-					peers.append(i->second.ip_port);
-					found_peers++;
+
+					if (!p->ipv6.empty() && !i->second.ipv6_port.empty() && i->second.user->track_ipv6()) {
+						peers6.append(i->second.ipv6_port);
+						found_peers++;
+					} else if (!i->second.ipv4_port.empty()) {
+						peers.append(i->second.ipv4_port);
+						found_peers++;
+					}
 					tor.last_selected_seeder = i->first;
 					++i;
 				}
@@ -626,22 +709,44 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 			if (found_peers < numwant && tor.leechers.size() > 1) {
 				for (peer_list::const_iterator i = tor.leechers.begin(); i != tor.leechers.end() && found_peers < numwant; ++i) {
 					// Don't show users themselves or leech disabled users
-					if (i->second.user->is_deleted() || i->second.ip_port == p->ip_port || i->second.user->get_id() == userid || !i->second.visible) {
+					if (
+						i->second.user->is_deleted()
+						|| (i->second.ipv4_port == p->ipv4_port && !p->ipv4_port.empty())
+						|| (i->second.ipv6_port == p->ipv6_port && !p->ipv6_port.empty())
+						|| i->second.user->get_id() == userid
+						|| !i->second.visible
+					) {
 						continue;
 					}
-					found_peers++;
-					peers.append(i->second.ip_port);
+
+					if (!p->ipv6.empty() && !i->second.ipv6_port.empty() && i->second.user->track_ipv6()) {
+						peers6.append(i->second.ipv6_port);
+						found_peers++;
+					} else if (!i->second.ipv4_port.empty()) {
+						peers.append(i->second.ipv4_port);
+						found_peers++;
+					}
 				}
 
 			}
-		} else if (tor.leechers.size() > 0) { // User is a seeder, and we have leechers!
+		} else if (!tor.leechers.empty()) { // User is a seeder, and we have leechers!
 			for (peer_list::const_iterator i = tor.leechers.begin(); i != tor.leechers.end() && found_peers < numwant; ++i) {
 				// Don't show users themselves or leech disabled users
-				if (i->second.user->get_id() == userid || !i->second.visible) {
+				if (
+					i->second.user->get_id() == userid
+					|| (i->second.ipv4_port == p->ipv4_port && !p->ipv4_port.empty())
+					|| (i->second.ipv6_port == p->ipv6_port && !p->ipv6_port.empty())
+					|| !i->second.visible
+				) {
 					continue;
 				}
-				found_peers++;
-				peers.append(i->second.ip_port);
+				if (!p->ipv6.empty() && !i->second.ipv6_port.empty() && i->second.user->track_ipv6()) {
+					peers6.append(i->second.ipv6_port);
+					found_peers++;
+				} else if (!i->second.ipv4_port.empty()) {
+					peers.append(i->second.ipv4_port);
+					found_peers++;
+				}
 			}
 		}
 	}
@@ -664,6 +769,47 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 		if (dec_s) {
 			p->user->decr_seeding();
 			stats.seeders--;
+		}
+
+		if (inc_l || inc_s) {
+			if(!p->ipv6.empty()){
+				char str[INET6_ADDRSTRLEN];
+				struct sockaddr_in6 sa6;
+				inet_ntop(AF_INET6, p->ipv6.c_str(), str, INET6_ADDRSTRLEN);
+				inet_pton(AF_INET6, str, &(sa6.sin6_addr));
+				if (ipv6_is_public(sa6.sin6_addr)) {
+					stats.ipv6_peers++;
+				}
+			}
+			if(!p->ipv4.empty()){
+				char str[INET_ADDRSTRLEN];
+				struct sockaddr_in sa;
+				inet_ntop(AF_INET, p->ipv4.c_str(), str, INET_ADDRSTRLEN);
+				inet_pton(AF_INET, str, &(sa.sin_addr));
+				if (ipv4_is_public(sa.sin_addr)) {
+					stats.ipv4_peers++;
+				}
+			}
+		}
+		if (dec_l || dec_s) {
+			if(!p->ipv6.empty()){
+				char str[INET6_ADDRSTRLEN];
+				struct sockaddr_in6 sa6;
+				inet_ntop(AF_INET6, p->ipv6.c_str(), str, INET6_ADDRSTRLEN);
+				inet_pton(AF_INET6, str, &(sa6.sin6_addr));
+				if (ipv6_is_public(sa6.sin6_addr)) {
+					stats.ipv6_peers--;
+				}
+			}
+			if(!p->ipv4.empty()){
+				char str[INET_ADDRSTRLEN];
+				struct sockaddr_in sa;
+				inet_ntop(AF_INET, p->ipv4.c_str(), str, INET_ADDRSTRLEN);
+				inet_pton(AF_INET, str, &(sa.sin_addr));
+				if (ipv4_is_public(sa.sin_addr)) {
+					stats.ipv4_peers--;
+				}
+			}
 		}
 	}
 
@@ -704,27 +850,22 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 		return error("Access denied, leeching forbidden", client_opts);
 	}
 
-	std::string output = "d8:completei";
+	std::string output = "d";
 	output.reserve(350);
-	output += inttostr(tor.seeders.size());
-	output += "e10:downloadedi";
-	output += inttostr(tor.completed);
-	output += "e10:incompletei";
-	output += inttostr(tor.leechers.size());
-	output += "e8:intervali";
-	output += inttostr(announce_interval + std::min((size_t)600, tor.seeders.size())); // ensure a more even distribution of announces/second
-	output += "e12:min intervali";
-	output += inttostr(announce_interval);
-	output += "e5:peers";
-	if (peers.length() == 0) {
-		output += "0:";
-	} else {
-		output += inttostr(peers.length());
-		output += ":";
-		output += peers;
+	output += bencode_str("complete") + bencode_int(tor.seeders.size());
+	output += bencode_str("downloaded") + bencode_int(tor.completed);
+	if (!public_ipv6.empty()) {
+		output += bencode_str("external ip") + bencode_str(public_ipv6);
+	} else if (!public_ipv4.empty()) {
+		output += bencode_str("external ip") + bencode_str(public_ipv4);
 	}
-	if (invalid_ip) {
-		output += warning("Illegal character found in IP address. IPv6 is not supported");
+	output += bencode_str("incomplete") + bencode_int(tor.leechers.size());
+	// ensure a more even distribution of announces/second
+	output += bencode_str("interval") + bencode_int(announce_interval + std::min((size_t)600, tor.seeders.size()));
+	output += bencode_str("min interval") + bencode_int(announce_interval);
+	output += bencode_str("peers") + bencode_str(peers);
+	if (!peers6.empty()) {
+		output += bencode_str("peers6") + bencode_str(peers6);
 	}
 	output += 'e';
 
@@ -903,7 +1044,8 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
 		auto u = users_list.find(passkey);
 		if (u == users_list.end()) {
 			bool protect_ip = params["visible"] == "0";
-			user_ptr tmp_user = std::make_shared<user>(userid, true, protect_ip);
+			bool track_ipv6 = params["track_ipv6"] == "1";
+			user_ptr tmp_user = std::make_shared<user>(userid, true, protect_ip, track_ipv6);
 			users_list.insert(std::pair<std::string, user_ptr>(passkey, tmp_user));
 			logger->info("Added user " + passkey + " with id " + std::to_string(userid));
 		} else {
@@ -934,21 +1076,21 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
 		}
 	} else if (params["action"] == "update_user") {
 		std::string passkey = params["passkey"];
-		bool can_leech = true;
-		bool protect_ip = false;
-		if (params["can_leech"] == "0") {
-			can_leech = false;
-		}
-		if (params["visible"] == "0") {
-			protect_ip = true;
-		}
 		std::lock_guard<std::mutex> ul_lock(db->user_list_mutex);
 		user_list::iterator i = users_list.find(passkey);
 		if (i == users_list.end()) {
 			logger->warn("No user with passkey " + passkey + " found when attempting to change leeching status!");
-		} else {
-			i->second->set_protected(protect_ip);
-			i->second->set_leechstatus(can_leech);
+		}
+		else {
+			if (params.find("can_leech") != params.find()) {
+				i->second->set_leechstatus(params["can_leech"] == "0"? false : true);
+			}
+			if (params.find("visible") != params.find()) {
+				i->second->set_protected(params["visible"] == "0");
+			}
+			if (params.find("track_ipv6") != params.end()) {
+				track_ipv6 = params["track_ipv6"] == "1";
+			}
 			logger->info("Updated user " + passkey);
 		}
 	} else if (params["action"] == "add_whitelist") {
@@ -1022,7 +1164,8 @@ void worker::do_start_reaper() {
 void worker::reap_peers() {
 	logger->info("Starting peer reaper");
 	cur_time = time(NULL);
-	unsigned int reaped_l = 0, reaped_s = 0;
+	unsigned int reaped_l = 0, reaped_v4l = 0, reaped_v6l = 0;
+	unsigned int reaped_s = 0, reaped_v4s = 0, reaped_v6s = 0;
 	unsigned int cleared_torrents = 0;
 	for (auto t = torrents_list.begin(); t != torrents_list.end(); ++t) {
 		bool reaped_this = false; // True if at least one peer was deleted from the current torrent
@@ -1031,6 +1174,8 @@ void worker::reap_peers() {
 		while (p != t->second.leechers.end()) {
 			if (p->second.last_announced + peers_timeout < cur_time) {
 				std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
+				if(!p->second.ipv6.empty()) reaped_v6l++;
+				if(!p->second.ipv4.empty()) reaped_v4l++;
 				del_p = p++;
 				del_p->second.user->decr_leeching();
 				t->second.leechers.erase(del_p);
@@ -1044,6 +1189,8 @@ void worker::reap_peers() {
 		while (p != t->second.seeders.end()) {
 			if (p->second.last_announced + peers_timeout < cur_time) {
 				std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
+				if(!p->second.ipv6.empty()) reaped_v6s++;
+				if(!p->second.ipv4.empty()) reaped_v4s++;
 				del_p = p++;
 				del_p->second.user->decr_seeding();
 				t->second.seeders.erase(del_p);
@@ -1061,9 +1208,11 @@ void worker::reap_peers() {
 			cleared_torrents++;
 		}
 	}
-	if (reaped_l || reaped_s) {
+	if (reaped_l || reaped_v4l || reaped_v6l || reaped_s || reaped_v4s || reaped_v6s) {
 		stats.leechers -= reaped_l;
 		stats.seeders -= reaped_s;
+		stats.ipv4_peers -= (reaped_v4l + reaped_v4s);
+		stats.ipv6_peers -= (reaped_v6l + reaped_v6s);
 	}
 	logger->info("Reaped " + std::to_string(reaped_l) + " leechers and " + std::to_string(reaped_s)
 				 + " seeders. Reset " + std::to_string(cleared_torrents) + " torrents");

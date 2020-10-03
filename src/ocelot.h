@@ -26,10 +26,11 @@ typedef struct {
 	uint32_t announces;
 	uint16_t port;
 	bool visible;
-	bool invalid_ip;
 	user_ptr user;
-	std::string ip_port;
-	std::string ip;
+	std::string ipv4;
+	std::string ipv4_port;
+	std::string ipv6;
+	std::string ipv6_port;
 } peer;
 
 typedef std::map<std::string, peer> peer_list;
@@ -102,6 +103,8 @@ struct stats_t {
 	std::atomic<uint64_t> scrapes;
 	std::atomic<uint64_t> bytes_read;
 	std::atomic<uint64_t> bytes_written;
+	std::atomic<uint64_t> ipv4_peers;
+	std::atomic<uint64_t> ipv6_peers;
 	time_t start_time;
 };
 extern struct stats_t stats;

@@ -10,7 +10,7 @@
 std::string report(params_type &params, user_list &users_list, client_opts_t &client_opts) {
 	std::stringstream output;
 	std::string action = params["get"];
-	if (action == "") {
+	if (action.empty()) {
 		output << "Invalid action\n";
 	} else if (action == "stats") {
 		time_t uptime = time(NULL) - stats.start_time;
