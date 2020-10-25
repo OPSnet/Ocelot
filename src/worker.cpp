@@ -1082,14 +1082,14 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
 			logger->warn("No user with passkey " + passkey + " found when attempting to change leeching status!");
 		}
 		else {
-			if (params.find("can_leech") != params.find()) {
-				i->second->set_leechstatus(params["can_leech"] == "0"? false : true);
+			if (params.find("can_leech") != params.end()) {
+				i->second->set_leechstatus(!(params["can_leech"] == "0"));
 			}
-			if (params.find("visible") != params.find()) {
+			if (params.find("visible") != params.end()) {
 				i->second->set_protected(params["visible"] == "0");
 			}
 			if (params.find("track_ipv6") != params.end()) {
-				track_ipv6 = params["track_ipv6"] == "1";
+				i->second->set_track_ipv6(!(params["track_ipv6"] == "0"));
 			}
 			logger->info("Updated user " + passkey);
 		}
@@ -1318,5 +1318,5 @@ std::string worker::get_del_reason(int code)
 /* Peers should be invisible if they are a leecher without
    download privs or their IP is invalid */
 bool worker::peer_is_visible(user_ptr &u, peer *p) {
-	return (p->left == 0 || u->can_leech()) && !p->invalid_ip;
+	return (p->left == 0 || u->can_leech());
 }
