@@ -47,6 +47,8 @@ void mysql::load_config(config * conf) {
 	mysql_username = conf->get_str("mysql_username");
 	mysql_password = conf->get_str("mysql_password");
 	readonly = conf->get_bool("readonly");
+	enable_ipv6 = conf->get_bool("enable_ipv6");
+	log_queries = conf->get_bool("log_queries");
 
 	query_dump.close();
 	query_dump.clear();
@@ -86,6 +88,9 @@ void mysql::clear_peer_data() {
 
 mysqlpp::Query mysql::do_query(mysqlpp::Connection &c, const std::string &sql)
 {
+	if (log_queries) {
+		logger->info("Query: " + sql);
+	}
 	if (query_dump.is_open()) {
 		std::lock_guard<std::mutex> lck(query_dump_mutex);
 		query_dump << sql << '\n';
@@ -163,7 +168,7 @@ void mysql::load_torrents(torrent_list &torrents) {
 }
 
 void mysql::load_users(user_list &users) {
-	mysqlpp::Query query = do_query("SELECT ID, can_leech, torrent_pass, (Visible='0' OR IP='127.0.0.1') AS Protected, track_ipv6 FROM users_main WHERE Enabled='1';");
+	mysqlpp::Query query = do_query("SELECT ID, can_leech, torrent_pass, (Visible='0' OR IP='127.0.0.1') AS Protected, " + std::string(enable_ipv6 ? "track_ipv6" : "false") + " as track_ipv6 FROM users_main WHERE Enabled='1';");
 	try {
 		mysqlpp::StoreQueryResult res = query.store();
 		size_t num_rows = res.num_rows();
@@ -283,7 +288,11 @@ void mysql::record_peer(const std::string &record, const std::string &ipv4, cons
 		update_heavy_peer_buffer += ",";
 	}
 	mysqlpp::Query q = conn.query();
-	q << record << mysqlpp::quote << ipv4 << ',' << mysqlpp::quote << ipv6 << ',' << mysqlpp::quote << peer_id << ',' << mysqlpp::quote << useragent << "," << time(NULL) << ')';
+	q << record << mysqlpp::quote << ipv4 << ',';
+	if (enable_ipv6) {
+		q << mysqlpp::quote << ipv6 << ',';
+	}
+	q << mysqlpp::quote << peer_id << ',' << mysqlpp::quote << useragent << "," << time(NULL) << ')';
 
 	update_heavy_peer_buffer += q.str();
 }
@@ -302,7 +311,11 @@ void mysql::record_snatch(const std::string &record, const std::string &ipv4, co
 		update_snatch_buffer += ",";
 	}
 	mysqlpp::Query q = conn.query();
-	q << record << ',' << mysqlpp::quote << ipv4 << ',' << mysqlpp::quote << ipv6 << ')';
+	q << record << ',' << mysqlpp::quote << ipv4 << ',';
+	if (enable_ipv6) {
+		q << mysqlpp::quote << ipv6;
+	}
+	q << ')';
 	update_snatch_buffer += q.str();
 }
 
@@ -386,7 +399,7 @@ void mysql::flush_snatches() {
 	if (update_snatch_buffer.empty()) {
 		return;
 	}
-	sql = "INSERT IGNORE INTO xbt_snatched (uid, fid, tstamp, IP, ipv6) VALUES " + update_snatch_buffer;
+	sql = "INSERT IGNORE INTO xbt_snatched (uid, fid, tstamp, IP" + std::string(enable_ipv6 ? ", ipv6" : "") + ") VALUES " + update_snatch_buffer;
 	snatch_queue.push(sql);
 	update_snatch_buffer.clear();
 	if (!s_active) {
@@ -422,7 +435,7 @@ void mysql::flush_peers() {
 			peer_queue.pop();
 		}
 		sql = "INSERT INTO xbt_files_users (uid,fid,active,uploaded,downloaded,upspeed,downspeed,remaining,corrupt," +
-			std::string("timespent,announced,ip,ipv6,peer_id,useragent,mtime) VALUES ") + update_heavy_peer_buffer +
+			std::string("timespent,announced,ip,") + std::string(enable_ipv6 ? "ipv6," : "") + std::string("peer_id,useragent,mtime) VALUES ") + update_heavy_peer_buffer +
 					" ON DUPLICATE KEY UPDATE active=VALUES(active), uploaded=VALUES(uploaded), " +
 					"downloaded=VALUES(downloaded), upspeed=VALUES(upspeed), " +
 					"downspeed=VALUES(downspeed), remaining=VALUES(remaining), " +

@@ -93,6 +93,7 @@ void config::init() {
 
 	// Logging
 	add("log", false);
+	add("log_queries", false);
 	add("log_path", "ocelot"); // path to where to write log + name of log (don't need to put file extension)
 
 	// Debugging

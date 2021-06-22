@@ -29,6 +29,7 @@ class mysql {
 		std::string mysql_db, mysql_host, mysql_username, mysql_password;
 		bool u_active, t_active, p_active, s_active, tok_active;
 		bool readonly;
+		bool enable_ipv6;
 
 		// These locks prevent more than one thread from reading/writing the buffers.
 		// These should be held for the minimum time possible.
@@ -40,6 +41,7 @@ class mysql {
 		std::mutex token_queue_lock;
 
 		std::shared_ptr<spdlog::logger> logger;
+		bool log_queries;
 
 		void load_config(config * conf);
 		void load_tokens(torrent_list &torrents);
