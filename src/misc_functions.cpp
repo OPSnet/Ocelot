@@ -82,7 +82,15 @@ std::string bintohex(const std::string &in) {
 	return out;
 }
 
-bool ipv4_is_public(in_addr addr){
+bool is_development() {
+	const char *tmp = std::getenv("DEVELOPMENT");
+	return tmp != NULL;
+}
+
+bool ipv4_is_public(in_addr addr) {
+	if (is_development()) {
+		return true;
+	}
 	// Match against reserved ranges
 	if ((ntohl(addr.s_addr) & 0xff000000) == 0x0a000000) return false; // 10.0.0.0/8
 	if ((ntohl(addr.s_addr) & 0xfff00000) == 0xac100000) return false; // 172.16.0.0/12
@@ -93,8 +101,10 @@ bool ipv4_is_public(in_addr addr){
 	return true;
 }
 
-bool ipv6_is_public(in6_addr addr){
-
+bool ipv6_is_public(in6_addr addr) {
+	if (is_development()) {
+		return true;
+	}
 	// Match against reserved ranges
 	if (ntohl(addr.s6_addr32[0]) == 0x00000000) return false; // Loopback / v4 compat v6
 	if (ntohs(addr.s6_addr16[0]) == 0xfe80    ) return false; // Link local
