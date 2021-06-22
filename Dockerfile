@@ -1,8 +1,5 @@
 FROM debian:stretch-slim
 
-COPY . /srv
-WORKDIR /srv
-
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
         build-essential \
@@ -13,19 +10,27 @@ RUN apt-get update \
         libev-dev \
         libjemalloc-dev \
         libmysql++-dev \
-        pkg-config \
-    && mkdir build \
+        pkg-config
+
+COPY . /srv
+WORKDIR /srv
+
+RUN mkdir build \
     && cd build \
     && cmake .. \
     && make \
-    && apt-get purge -y \
+    && mv /srv/build/ocelot /srv/ocelot \
+    && mv /srv/ocelot.conf.dist /srv/ocelot.conf
+
+RUN apt-get purge -y \
         build-essential \
-        cmake \    
+        cmake \
         pkg-config \
     && apt-get autoremove -y \
     && apt-get clean -y \
-    && rm -rf /var/lib/apt/lists/* \
-    && mv /srv/build/ocelot /srv/ocelot \
-    && mv /srv/ocelot.conf.dist /srv/ocelot.conf
+    && rm -rf /var/lib/apt/lists/*
+
+# default listen_port value in ocelot.conf
+EXPOSE 34000
 
 CMD ["/srv/ocelot"]

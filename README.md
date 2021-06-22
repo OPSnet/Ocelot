@@ -35,6 +35,13 @@ make
 
 The [Gazelle installation guides](https://github.com/WhatCD/Gazelle/wiki/Gazelle-installation) include instructions for installing Ocelot as a part of the Gazelle project.
 
+### Docker
+
+```bash
+docker build . -t ocelot
+docker run -v $(pwd)/ocelot.conf:/srv/ocelot.conf ocelot
+```
+
 ### Standalone Installation
 
 * Create the following tables according to the [Gazelle database schema](https://raw.githubusercontent.com/WhatCD/Gazelle/master/gazelle.sql):
