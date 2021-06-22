@@ -1,5 +1,7 @@
 FROM debian:stretch-slim
 
+LABEL org.opencontainers.image.source=https://github.com/OPSnet/Ocelot
+
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
         build-essential \
