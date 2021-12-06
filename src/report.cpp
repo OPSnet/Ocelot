@@ -37,6 +37,20 @@ std::string report(params_type &params, user_list &users_list, client_opts_t &cl
 			   << stats.seeders << " seeders tracked\n"
 			   << stats.bytes_read << " bytes read\n"
 			   << stats.bytes_written << " bytes written\n";
+	} else if (action == "prom_stats") {
+		time_t uptime = time(NULL) - stats.start_time;
+		output << "ocelot_uptime " << uptime << "\n"
+			   << "ocelot_open_connections " << stats.open_connections << "\n"
+			   << "ocelot_connection_rate " << stats.connection_rate << "\n"
+			   << "ocelot_requests " << stats.requests << "\n"
+			   << "ocelot_request_rate " << stats.request_rate << "\n"
+			   << "ocelot_succ_announcements " << stats.succ_announcements << "\n"
+			   << "ocelot_total_announcements " << stats.announcements << "\n"
+			   << "ocelot_scrapes " << stats.scrapes << "\n"
+			   << "ocelot_leechers " << stats.leechers << "\n"
+			   << "ocelot_seeders " << stats.seeders << "\n"
+			   << "ocelot_bytes_read " << stats.bytes_read << "\n"
+			   << "ocelot_bytes_written " << stats.bytes_written << "\n#";
 	} else if (action == "user") {
 		std::string key = params["key"];
 		if (key.empty()) {
