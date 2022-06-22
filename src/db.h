@@ -42,6 +42,7 @@ class mysql {
 
 		void load_config(config * conf);
 		void load_tokens(torrent_list &torrents);
+		mysqlpp::Connection create_connection();
 
 		void do_flush_users();
 		void do_flush_torrents();
