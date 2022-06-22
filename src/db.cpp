@@ -320,6 +320,7 @@ void mysql::flush_users() {
 		" ON DUPLICATE KEY UPDATE Uploaded = Uploaded + VALUES(Uploaded), Downloaded = Downloaded + VALUES(Downloaded)";
 	user_queue.push(sql);
 	update_user_buffer.clear();
+	stats.user_queue_size = qsize + 1;
 	if (!u_active) {
 		std::thread thread(&mysql::do_flush_users, this);
 		thread.detach();
@@ -350,6 +351,7 @@ void mysql::flush_torrents() {
 	sql.clear();
 	sql = "DELETE FROM torrents WHERE info_hash = ''";
 	torrent_queue.push(sql);
+	stats.torrent_queue_size = qsize + 2;
 	if (!t_active) {
 		std::thread thread(&mysql::do_flush_torrents, this);
 		thread.detach();
@@ -373,6 +375,7 @@ void mysql::flush_snatches() {
 	sql = "INSERT IGNORE INTO xbt_snatched (uid, fid, tstamp, IP) VALUES " + update_snatch_buffer;
 	snatch_queue.push(sql);
 	update_snatch_buffer.clear();
+	stats.snatch_queue_size = qsize + 1;
 	if (!s_active) {
 		std::thread thread(&mysql::do_flush_snatches, this);
 		thread.detach();
@@ -388,6 +391,7 @@ void mysql::flush_peers() {
 	std::string sql;
 	std::lock_guard<std::mutex> pq_lock(peer_queue_lock);
 	size_t qsize = peer_queue.size();
+	short qsize_added = 0;
 	if (verbose_flush || qsize > 0) {
 		logger->info("Peer flush queue size: " + std::to_string(qsize) + ", next query length: " + std::to_string(peer_queue.front().size()));
 	}
@@ -404,6 +408,8 @@ void mysql::flush_peers() {
 		// but that's better than an oom crash
 		if (qsize >= 1000) {
 			peer_queue.pop();
+		} else {
+			qsize_added += 1;
 		}
 		sql = "INSERT INTO xbt_files_users (uid,fid,active,uploaded,downloaded,upspeed,downspeed,remaining,corrupt," +
 			std::string("timespent,announced,ip,peer_id,useragent,mtime) VALUES ") + update_heavy_peer_buffer +
@@ -420,6 +426,8 @@ void mysql::flush_peers() {
 		// See comment above
 		if (qsize >= 1000) {
 			peer_queue.pop();
+		} else {
+			qsize_added += 1;
 		}
 		sql = "INSERT INTO xbt_files_users (uid,fid,timespent,announced,peer_id,mtime) VALUES " +
 					update_light_peer_buffer +
@@ -429,6 +437,7 @@ void mysql::flush_peers() {
 		update_light_peer_buffer.clear();
 		sql.clear();
 	}
+	stats.peer_queue_size = qsize + qsize_added;
 
 	if (!p_active) {
 		std::thread thread(&mysql::do_flush_peers, this);
@@ -454,6 +463,7 @@ void mysql::flush_tokens() {
 		" ON DUPLICATE KEY UPDATE Downloaded = Downloaded + VALUES(Downloaded)";
 	token_queue.push(sql);
 	update_token_buffer.clear();
+	stats.token_queue_size = qsize + 1;
 	if (!tok_active) {
 		std::thread thread(&mysql::do_flush_tokens, this);
 		thread.detach();
@@ -475,6 +485,7 @@ void mysql::do_flush_users() {
 				} else {
 					std::lock_guard<std::mutex> uq_lock(user_queue_lock);
 					user_queue.pop();
+					stats.user_queue_size -= 1;
 				}
 			}
 			catch (const mysqlpp::BadQuery &er) {
@@ -503,6 +514,7 @@ void mysql::do_flush_torrents() {
 				std::string sql = torrent_queue.front();
 				if (sql.empty()) {
 					torrent_queue.pop();
+					stats.torrent_queue_size -= 1;
 					continue;
 				}
 				mysqlpp::Query query = c.query(sql);
@@ -513,6 +525,7 @@ void mysql::do_flush_torrents() {
 				} else {
 					std::lock_guard<std::mutex> tq_lock(torrent_queue_lock);
 					torrent_queue.pop();
+					stats.torrent_queue_size -= 1;
 				}
 			}
 			catch (const mysqlpp::BadQuery &er) {
@@ -547,6 +560,7 @@ void mysql::do_flush_peers() {
 				} else {
 					std::lock_guard<std::mutex> pq_lock(peer_queue_lock);
 					peer_queue.pop();
+					stats.peer_queue_size -= 1;
 				}
 			}
 			catch (const mysqlpp::BadQuery &er) {
@@ -581,6 +595,7 @@ void mysql::do_flush_snatches() {
 				} else {
 					std::lock_guard<std::mutex> sq_lock(snatch_queue_lock);
 					snatch_queue.pop();
+					stats.snatch_queue_size -= 1;
 				}
 			}
 			catch (const mysqlpp::BadQuery &er) {
@@ -615,6 +630,7 @@ void mysql::do_flush_tokens() {
 				} else {
 					std::lock_guard<std::mutex> tq_lock(token_queue_lock);
 					token_queue.pop();
+					stats.token_queue_size -= 1;
 				}
 			}
 			catch (const mysqlpp::BadQuery &er) {

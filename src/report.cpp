@@ -35,6 +35,11 @@ std::string report(params_type &params, user_list &users_list, client_opts_t &cl
 			   << stats.scrapes << " scrapes\n"
 			   << stats.leechers << " leechers tracked\n"
 			   << stats.seeders << " seeders tracked\n"
+			   << stats.user_queue_size << " items in user queue\n"
+			   << stats.torrent_queue_size << " items in torrent queue\n"
+			   << stats.peer_queue_size << " items in peer queue\n"
+			   << stats.snatch_queue_size << " items in snatch queue\n"
+			   << stats.token_queue_size << " items in token queue\n"
 			   << stats.bytes_read << " bytes read\n"
 			   << stats.bytes_written << " bytes written\n";
 	} else if (action == "prom_stats") {
@@ -49,6 +54,11 @@ std::string report(params_type &params, user_list &users_list, client_opts_t &cl
 			   << "ocelot_scrapes " << stats.scrapes << "\n"
 			   << "ocelot_leechers " << stats.leechers << "\n"
 			   << "ocelot_seeders " << stats.seeders << "\n"
+			   << "ocelot_user_queue " << stats.user_queue_size << "\n"
+			   << "ocelot_torrent_queue " << stats.torrent_queue_size << "\n"
+			   << "ocelot_peer_queue " << stats.peer_queue_size << "\n"
+			   << "ocelot_snatch_queue " << stats.snatch_queue_size << "\n"
+			   << "ocelot_token_queue " << stats.token_queue_size << "\n"
 			   << "ocelot_bytes_read " << stats.bytes_read << "\n"
 			   << "ocelot_bytes_written " << stats.bytes_written << "\n#";
 	} else if (action == "user") {
