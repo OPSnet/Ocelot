@@ -127,6 +127,8 @@ void site_comm::do_flush_tokens()
 				token_queue.pop();
 			} else {
 				logger->error("Response returned with status code " + std::to_string(status_code) + " when trying to expire a token!");
+				// TODO: add exponential backoff
+				std::this_thread::sleep_for(std::chrono::seconds(5));
 			}
 		}
 	} catch (std::exception &er) {
