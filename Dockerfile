@@ -1,4 +1,4 @@
-FROM debian:stretch-slim
+FROM debian:bullseye-slim
 
 LABEL org.opencontainers.image.source=https://github.com/OPSnet/Ocelot
 
