@@ -1,4 +1,10 @@
-FROM debian:stretch-slim
+# Use debian:stretch as the base image
+FROM debian:stretch
+
+# Update the package repository sources
+RUN sed -i '/deb http:\/\/deb.debian.org\/debian stretch-updates main/d' /etc/apt/sources.list
+RUN sed -i 's/http:\/\/deb.debian.org\/debian/http:\/\/archive.debian.org\/debian\//' /etc/apt/sources.list
+RUN sed -i 's/http:\/\/security.debian.org\/debian-security/http:\/\/archive.debian.org\/debian-security\//' /etc/apt/sources.list
 
 LABEL org.opencontainers.image.source=https://github.com/OPSnet/Ocelot
 
