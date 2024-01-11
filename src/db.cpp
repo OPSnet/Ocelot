@@ -27,7 +27,7 @@ mysql::mysql(config * conf) : u_active(false), t_active(false), p_active(false),
 	try {
 		mysqlpp::ReconnectOption reconnect(true);
 		conn.set_option(&reconnect);
-		conn.connect(mysql_db.c_str(), mysql_host.c_str(), mysql_username.c_str(), mysql_password.c_str(), 0);
+		conn.connect(mysql_db.c_str(), mysql_host.c_str(), mysql_username.c_str(), mysql_password.c_str(), mysql_port);
 	} catch (const mysqlpp::Exception &er) {
 		logger->error("Failed to connect to MySQL (" + std::string(er.what()) + ")");
 		return;
@@ -46,6 +46,7 @@ void mysql::load_config(config * conf) {
 	mysql_host = conf->get_str("mysql_host");
 	mysql_username = conf->get_str("mysql_username");
 	mysql_password = conf->get_str("mysql_password");
+	mysql_port = conf->get_uint("mysql_port");
 	readonly = conf->get_bool("readonly");
 }
 

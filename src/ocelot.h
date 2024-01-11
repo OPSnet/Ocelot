@@ -110,4 +110,6 @@ struct stats_t {
 	time_t start_time;
 };
 extern struct stats_t stats;
+
+extern const char *version();
 #endif

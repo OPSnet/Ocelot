@@ -984,17 +984,20 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
 		announce_interval = conf->get_uint("announce_interval");
 		logger->info("Edited announce interval to " + std::to_string(announce_interval));
 	} else if (params["action"] == "info_torrent") {
+		std::stringstream output;
 		std::string info_hash_hex = params["info_hash"];
 		std::string info_hash = hex_decode(info_hash_hex);
-		logger->info("Info for torrent '" + std::string(info_hash_hex) + "'");
 		std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
 		auto torrent_it = torrents_list.find(info_hash);
+		output << "{\"hash\":" << std::string(info_hash_hex);
 		if (torrent_it != torrents_list.end()) {
-			logger->info("Torrent " + std::to_string(torrent_it->second.id)
-				+ ", freetorrent = " + std::to_string(torrent_it->second.free_torrent));
+			output << ",\"id\":" << std::to_string(torrent_it->second.id)
+				<< ",\"free\":" << std::to_string(torrent_it->second.free_torrent);
 		} else {
-			logger->warn("Failed to find torrent " + info_hash_hex);
+			output << ",\"fail\":1";
 		}
+		output << "}\n";
+		return response(output.str(), client_opts);
 	}
 	return response("success", client_opts);
 }

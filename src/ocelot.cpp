@@ -22,6 +22,11 @@ static schedule *sched;
 
 struct stats_t stats;
 
+const char * version()
+{
+	return "2.0.1";
+}
+
 static void create_daemon()
 {
 	pid_t pid;
@@ -107,7 +112,7 @@ int main(int argc, char **argv) {
 			conf_file_path = argv[++i];
 		}
 		else if(strcmp(argv[i], "-V") == 0 || strcmp(argv[i], "--version") == 0) {
-			std::cout << "Ocelot, version 2.0.0" << std::endl;
+			std::cout << "Ocelot version " << version() << std::endl;
 			return 0;
 		}
 		else {
