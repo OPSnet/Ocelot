@@ -26,6 +26,7 @@ class mysql {
 		std::queue<std::string> token_queue;
 
 		std::string mysql_db, mysql_host, mysql_username, mysql_password;
+		unsigned int mysql_port;
 		bool u_active, t_active, p_active, s_active, tok_active;
 		bool readonly;
 

@@ -19,6 +19,7 @@ mysql_host          =
 mysql_username      = 
 mysql_password      = 
 mysql_db            = 
+mysql_port          = 3306
 
 # The passwords must be 32 characters and match the Gazelle config
 report_password     = 00000000000000000000000000000000
