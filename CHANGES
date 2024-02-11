@@ -1,3 +1,21 @@
+-- 2.1.0 (2024-02-11)
+FEATURES
+* announce jitter is now a uniform distribution and can be modified on the fly
+
+-- 2.0.1 (2024-02-10)
+BREAKING
+* API torrent endpoint output changed to JSON
+* API user endpoint shows more information about a user in JSON format
+FEATURES
+* Mysql port may be specified in configuration file
+* API stats report contains Ocelot version
+* Queue sizes are reported in stats
+* Sleep if Gazelle API is down
+* Handle DB connection problems gracefully
+* Add Prometheus and Grafana support
+BUILD
+* Docker image based on Bookworm
+
 -- 2.0.0 (2019-10-22)
 BREAKING
 * Write leech stats into their own dedicated tables (users_leech_stats, torrents_leech_stats)
@@ -15,7 +33,7 @@ BUILD
 Move to spdlog (https://github.com/gabime/spdlog)to handle logging instead of cout
     spdlog is vendored under src/, currently using v0.13.0
 Add logging directive to config to configure how Ocelot logs and where it logs
-Add deamon (--daemon, -d) to run Ocelot as a daemon
+Add daemon switch (--daemon, -d) to run Ocelot as a daemon
 Move source code into src/ directory
 Add Vagrantfile and Dockerfile for running Ocelot
 

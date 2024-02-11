@@ -24,7 +24,7 @@ struct stats_t stats;
 
 const char * version()
 {
-	return "2.0.1";
+	return "2.1.0";
 }
 
 static void create_daemon()
@@ -97,7 +97,9 @@ int main(int argc, char **argv) {
 
 	conf = new config();
 
-	bool verbose = false, conf_arg = false, daemonize = false;
+	bool conf_arg  = false;
+	bool daemonize = false;
+	bool verbose   = false;
 	std::string conf_file_path("./ocelot.conf");
 
 	for (int i = 1; i < argc; i++) {
@@ -116,7 +118,7 @@ int main(int argc, char **argv) {
 			return 0;
 		}
 		else {
-			std::cout << "Usage: " << argv[0] << " [-v] [-c configfile]" << std::endl;
+			std::cout << "Usage: " << argv[0] << " [-v] [-c configfile] [--daemonize]" << std::endl;
 			return 0;
 		}
 	}

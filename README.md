@@ -5,17 +5,16 @@ It supports requests over TCP and can only track IPv4 peers.
 
 ## Ocelot Compile-time Dependencies
 
-* [GCC/G++](http://gcc.gnu.org/) (4.7+ required; 4.8.1+ recommended)
-* [Boost](http://www.boost.org/) (1.55.0+ required)
+* [GCC/G++](http://gcc.gnu.org/) (11+ required; 11.4.0+ recommended)
+* [Boost](http://www.boost.org/) (1.74.0+ required)
 * [libev](http://software.schmorp.de/pkg/libev.html) (required)
-* [spdlog](https://github.com/gabime/spdlog) (required)
 * [MySQL++](http://tangentsoft.net/mysql++/) (3.2.0+ required)
 * [jemalloc](http://jemalloc.net/) (optional, but strongly recommended)
 * [TCMalloc](http://goog-perftools.sourceforge.net/doc/tcmalloc.html) (optional)
 
 ## Installation
 
-### Debian Stretch
+### Debian Bookworm
 ```bash
 sudo apt-get install \
     build-essential \
@@ -26,11 +25,10 @@ sudo apt-get install \
     libev-dev \
     libjemalloc-dev \
     libmysql++-dev \
+	netcat-traditional \
     pkg-config
-mkdir build
-cd build
-cmake ..
-make
+cmake -Wno-dev . -B build 
+make -C build
 ```
 
 The [Gazelle installation guides](https://github.com/WhatCD/Gazelle/wiki/Gazelle-installation) include instructions for installing Ocelot as a part of the Gazelle project.
@@ -43,6 +41,10 @@ docker run -v $(pwd)/ocelot.conf:/srv/ocelot.conf ocelot
 ```
 
 ### Standalone Installation
+
+* Prepare the build environment. (This must be re-executed when new source files are added).
+
+        cmake -Wno-dev . -B build
 
 * Create the following tables according to the [Gazelle database schema](https://raw.githubusercontent.com/WhatCD/Gazelle/master/gazelle.sql):
  - `torrents`
@@ -58,10 +60,7 @@ docker run -v $(pwd)/ocelot.conf:/srv/ocelot.conf ocelot
 
 * Build Ocelot:
 
-        mkdir build
-        cd build
-        cmake ..
-        make
+        make -C build
 
 ## Running Ocelot
 
