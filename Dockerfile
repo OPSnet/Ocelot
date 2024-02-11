@@ -6,7 +6,6 @@ RUN apt-get update \
     && apt-get install --no-install-recommends -y \
         build-essential \
         cmake \
-        curl \
         default-libmysqlclient-dev \
         libboost-iostreams-dev \
         libboost-system-dev \
@@ -20,10 +19,8 @@ RUN apt-get update \
 COPY . /srv
 WORKDIR /srv
 
-RUN mkdir build \
-    && cd build \
-    && cmake .. \
-    && make \
+RUN cmake -Wno-dev -S /srv -B /srv/build \
+    && make -C build \
     && apt-get purge -y \
         build-essential \
         cmake \

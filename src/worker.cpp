@@ -22,20 +22,21 @@
 
 //---------- Worker - does stuff with input
 worker::worker(config * conf_obj, torrent_list &torrents, user_list &users, std::vector<std::string> &_whitelist, mysql * db_obj, site_comm * sc) :
-	conf(conf_obj), db(db_obj), s_comm(sc), torrents_list(torrents), users_list(users), whitelist(_whitelist), status(OPEN), reaper_active(false)
+	conf(conf_obj), db(db_obj), s_comm(sc), torrents_list(torrents), users_list(users), whitelist(_whitelist), status(OPEN), reaper_active(false), randgen((std::random_device())())
 {
 	logger = spdlog::get("logger");
 	load_config(conf);
 }
 
 void worker::load_config(config * conf) {
-	announce_interval = conf->get_uint("announce_interval");
+	announce_interval   = conf->get_uint("announce_interval");
 	del_reason_lifetime = conf->get_uint("del_reason_lifetime");
-	peers_timeout = conf->get_uint("peers_timeout");
-	numwant_limit = conf->get_uint("numwant_limit");
-	keepalive_enabled = conf->get_uint("keepalive_timeout") != 0;
-	site_password = conf->get_str("site_password");
-	report_password = conf->get_str("report_password");
+	peers_timeout       = conf->get_uint("peers_timeout");
+	numwant_limit       = conf->get_uint("numwant_limit");
+	keepalive_enabled   = conf->get_uint("keepalive_timeout") != 0;
+	site_password       = conf->get_str("site_password");
+	report_password     = conf->get_str("report_password");
+	jitter              = std::uniform_int_distribution<int>(0, conf->get_uint("announce_jitter"));
 }
 
 void worker::reload_config(config * conf) {
@@ -226,7 +227,7 @@ std::string worker::work(const std::string &input, std::string &ip, client_opts_
 	if (action == REPORT) {
 		if (passkey == report_password) {
 			std::lock_guard<std::mutex> ul_lock(db->user_list_mutex);
-			return report(params, users_list, client_opts);
+			return report(params, users_list, client_opts, announce_interval, conf->get_uint("announce_jitter"));
 		} else {
 			return error("Authentication failure", client_opts);
 		}
@@ -712,7 +713,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 	output += "e10:incompletei";
 	output += inttostr(tor.leechers.size());
 	output += "e8:intervali";
-	output += inttostr(announce_interval + std::min((size_t)600, tor.seeders.size())); // ensure a more even distribution of announces/second
+	output += inttostr(announce_interval + jitter(randgen));
 	output += "e12:min intervali";
 	output += inttostr(announce_interval);
 	output += "e5:peers";
@@ -983,6 +984,11 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
 		conf->set("announce_interval", interval);
 		announce_interval = conf->get_uint("announce_interval");
 		logger->info("Edited announce interval to " + std::to_string(announce_interval));
+	} else if (params["action"] == "update_announce_jitter") {
+		const std::string new_jitter = params["new_announce_jitter"];
+		conf->set("announce_jitter", new_jitter);
+		jitter = std::uniform_int_distribution<int>(0, conf->get_uint("announce_jitter"));
+		logger->info("Edited announce jitter to " + std::to_string(conf->get_uint("announce_jitter")));
 	} else if (params["action"] == "info_torrent") {
 		std::stringstream output;
 		std::string info_hash_hex = params["info_hash"];

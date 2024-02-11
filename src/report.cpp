@@ -7,12 +7,10 @@
 #include "response.h"
 #include "user.h"
 
-std::string report(params_type &params, user_list &users_list, client_opts_t &client_opts) {
+std::string report(params_type &params, user_list &users_list, client_opts_t &client_opts, unsigned int announce_interval, unsigned int announce_jitter) {
 	std::stringstream output;
 	std::string action = params["get"];
-	if (action.empty()) {
-		output << "Invalid action\n";
-	} else if (action == "stats") {
+	if (action == "stats") {
 		time_t uptime = time(NULL) - stats.start_time;
 		int up_d = uptime / 86400;
 		uptime -= up_d * 86400;
@@ -20,11 +18,11 @@ std::string report(params_type &params, user_list &users_list, client_opts_t &cl
 		uptime -= up_h * 3600;
 		int up_m = uptime / 60;
 		int up_s = uptime - up_m * 60;
-		std::string up_ht = up_h <= 9 ? '0' + inttostr(up_h) : inttostr(up_h);
-		std::string up_mt = up_m <= 9 ? '0' + inttostr(up_m) : inttostr(up_m);
-		std::string up_st = up_s <= 9 ? '0' + inttostr(up_s) : inttostr(up_s);
 
-		output << "Uptime: " << up_d << " days, " << up_ht << ':' << up_mt << ':' << up_st << "\n"
+		output << "Uptime: " << up_d << " days, "
+				<< (up_h < 10 ? "0" : "") << inttostr(up_h) << ':'
+				<< (up_m < 10 ? "0" : "") << inttostr(up_m) << ':'
+				<< (up_s < 10 ? "0" : "") << inttostr(up_s) << "\n"
 			<< "version: " << version() << "\n"
 			<< stats.opened_connections << " connections opened\n"
 			<< stats.open_connections << " open connections\n"
@@ -42,7 +40,10 @@ std::string report(params_type &params, user_list &users_list, client_opts_t &cl
 			<< stats.snatch_queue_size << " items in snatch queue\n"
 			<< stats.token_queue_size << " items in token queue\n"
 			<< stats.bytes_read << " bytes read\n"
-			<< stats.bytes_written << " bytes written\n";
+			<< stats.bytes_written << " bytes written\n"
+			<< announce_interval << " announce interval\n"
+			<< announce_jitter << " announce jitter\n"
+			;
 	} else if (action == "prom_stats") {
 		time_t uptime = time(NULL) - stats.start_time;
 		output << "ocelot_uptime " << uptime << "\n"

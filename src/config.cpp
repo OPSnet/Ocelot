@@ -66,6 +66,7 @@ void config::init() {
 
 	// Tracker requests
 	add("announce_interval", 1800u);
+	add("announce_jitter", 240u);
 	add("max_request_size", 4096u);
 	add("numwant_limit", 50u);
 	add("request_log_size", 500u);
@@ -79,6 +80,7 @@ void config::init() {
 	// MySQL
 	add("mysql_db", "gazelle");
 	add("mysql_host", "localhost");
+	add("mysql_port", 3306u);
 	add("mysql_username", "");
 	add("mysql_password", "");
 	add("mysql_port", 3306u);
@@ -101,7 +103,7 @@ void config::init() {
 confval * config::get(const std::string &setting_name) {
 	const auto setting = settings.find(setting_name);
 	if (setting == settings.end()) {
-		 spdlog::get("logger")->info("WARNING: Unrecognized setting '" + setting_name + "'");
+		spdlog::get("logger")->info("WARNING: Unrecognized setting '" + setting_name + "'");
 		return dummy_setting;
 	}
 	return &setting->second;

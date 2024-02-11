@@ -9,6 +9,8 @@
 #include <mutex>
 #include <ctime>
 #include <spdlog/spdlog.h>
+#include <random>
+
 #include "site_comm.h"
 #include "ocelot.h"
 
@@ -27,6 +29,8 @@ class worker {
 		bool reaper_active;
 		time_t cur_time;
 		std::shared_ptr<spdlog::logger> logger;
+		std::mt19937 randgen;
+		std::uniform_int_distribution<int> jitter;
 
 		unsigned int announce_interval;
 		unsigned int del_reason_lifetime;

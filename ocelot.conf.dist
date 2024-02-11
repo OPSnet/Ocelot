@@ -11,15 +11,16 @@ connection_timeout  = 10
 keepalive_timeout   = 0
 
 announce_interval   = 1800
+announce_jitter     = 240
 max_request_size    = 4096
 numwant_limit       = 50
 request_log_size    = 500
 
-mysql_host          = 
-mysql_username      = 
-mysql_password      = 
-mysql_db            = 
-mysql_port          = 3306
+mysql_host          = mysql
+mysql_port          = 36000
+mysql_username      = gazelle
+mysql_password      = password
+mysql_db            = gazelle
 
 # The passwords must be 32 characters and match the Gazelle config
 report_password     = 00000000000000000000000000000000
