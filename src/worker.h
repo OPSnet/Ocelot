@@ -1,67 +1,71 @@
-#ifndef WORKER_H
-#define WORKER_H
+#ifndef SRC_WORKER_H_
+#define SRC_WORKER_H_
+
+// Copyright [2017-2024] Orpheus
+
+#include <spdlog/spdlog.h>
 
 #include <string>
 #include <vector>
 #include <list>
 #include <unordered_map>
 #include <iostream>
+#include <memory>
 #include <mutex>
 #include <ctime>
-#include <spdlog/spdlog.h>
 #include <random>
 
 #include "site_comm.h"
-#include "ocelot.h"
 
-enum tracker_status { OPEN, PAUSED, CLOSING }; // tracker status
+enum tracker_status { OPEN, PAUSED, CLOSING };  // tracker status
 
 class worker {
-	private:
-		config * conf;
-		mysql * db;
-		site_comm * s_comm;
-		torrent_list &torrents_list;
-		user_list &users_list;
-		std::vector<std::string> &whitelist;
-		std::unordered_map<std::string, del_message> del_reasons;
-		tracker_status status;
-		bool reaper_active;
-		time_t cur_time;
-		std::shared_ptr<spdlog::logger> logger;
-		std::mt19937 randgen;
-		std::uniform_int_distribution<int> jitter;
+ private:
+    config * conf;
+    mysql * db;
+    site_comm * s_comm;
+    torrent_list &torrents_list;
+    user_list &users_list;
+    std::vector<std::string> &whitelist;
+    std::unordered_map<std::string, del_message> del_reasons;
+    tracker_status status;
+    bool reaper_active;
+    time_t cur_time;
+    std::shared_ptr<spdlog::logger> logger;
+    std::mt19937 randgen;
+    std::uniform_int_distribution<int> jitter;
 
-		unsigned int announce_interval;
-		unsigned int del_reason_lifetime;
-		unsigned int peers_timeout;
-		unsigned int numwant_limit;
-		bool keepalive_enabled;
-		std::string site_password;
-		std::string report_password;
+    unsigned int announce_interval;
+    unsigned int del_reason_lifetime;
+    unsigned int peers_timeout;
+    unsigned int numwant_limit;
+    bool keepalive_enabled;
+    std::string site_password;
+    std::string report_password;
 
-		std::mutex del_reasons_lock;
-		void load_config(config * conf);
-		void do_start_reaper();
-		void reap_peers();
-		void reap_del_reasons();
-		std::string get_del_reason(int code);
-		peer_list::iterator add_peer(peer_list &peer_list, const std::string &peer_id);
-		inline bool peer_is_visible(user_ptr &u, peer *p);
+    std::mutex del_reasons_lock;
+    void load_config(config * conf);
+    void do_start_reaper();
+    void reap_peers();
+    void reap_del_reasons();
+    std::string get_del_reason(int code);
+    peer_list::iterator add_peer(peer_list &peer_list, const std::string &peer_id);
+    inline bool peer_is_visible(user_ptr &u, peer *p);
 
-	public:
-		worker(config * conf_obj, torrent_list &torrents, user_list &users, std::vector<std::string> &_whitelist, mysql * db_obj, site_comm * sc);
-		void reload_config(config * conf);
-		std::string work(const std::string &input, std::string &ip, client_opts_t &client_opts);
-		std::string announce(const std::string &input, torrent &tor, user_ptr &u, params_type &params, params_type &headers, std::string &ip, client_opts_t &client_opts);
-		std::string scrape(const std::list<std::string> &infohashes, params_type &headers, client_opts_t &client_opts);
-		std::string update(params_type &params, client_opts_t &client_opts);
+ public:
+    worker(config * conf_obj, torrent_list &torrents, user_list &users, std::vector<std::string> &_whitelist, mysql * db_obj, site_comm * sc);
+    void reload_config(config * conf);
+    std::string work(const std::string &input, std::string &ip, client_opts_t &client_opts);
+    std::string announce(const std::string &input, torrent &tor, user_ptr &u, params_type &params, params_type &headers, std::string &ip, client_opts_t &client_opts);
+    std::string scrape(const std::list<std::string> &infohashes, params_type &headers, client_opts_t &client_opts);
+    std::string update(params_type &params, client_opts_t &client_opts);
 
-		void reload_lists();
-		bool shutdown();
+    void reload_lists();
+    bool shutdown();
 
-		tracker_status get_status() { return status; }
+    tracker_status get_status() { return status; }
 
-		void start_reaper();
+    void start_reaper();
 };
-#endif
+
+#endif  // SRC_WORKER_H_
