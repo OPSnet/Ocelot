@@ -227,8 +227,25 @@ std::string worker::work(const std::string &input, std::string &ip, client_opts_
 
     if (action == REPORT) {
         if (passkey == report_password) {
-            std::lock_guard<std::mutex> ul_lock(db->user_list_mutex);
-            return report(params, users_list, client_opts, announce_interval, conf->get_uint("announce_jitter"));
+            if (params["get"] == "prom_stats") {
+                // exclude per-arena (a), destroyed merged (d), mutex (m) and extents (e) statistics
+                std::string jemalloc_stats(report_jemalloc_plain("adex", conf->get_str("report_path")));
+                return response(
+                    report_prom_stats(jemalloc_stats.c_str()),
+                    client_opts
+                );
+            } else if (params["jemalloc"] == "plain") {
+                return response(
+                    report_jemalloc_plain("adex", conf->get_str("report_path")),
+                    client_opts
+                );
+            } else {
+                std::lock_guard<std::mutex> ul_lock(db->user_list_mutex);
+                return response(
+                    report(params, users_list, announce_interval, conf->get_uint("announce_jitter")),
+                    client_opts
+                );
+            }
         } else {
             return error("Authentication failure", client_opts);
         }

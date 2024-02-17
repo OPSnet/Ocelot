@@ -8,9 +8,14 @@
 std::string report(
     params_type &params,
     user_list &users_list,
-    client_opts_t &client_opts,
     unsigned int announce_interval,
     unsigned int announce_jitter
 );
+
+// return a snapshot of jemalloc statistics
+std::string report_jemalloc_plain(const char *opts, std::string path);
+
+// return output for a prometheus scrape
+std::string report_prom_stats(const char *jemalloc_stats);
 
 #endif  // SRC_REPORT_H_

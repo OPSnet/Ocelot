@@ -34,4 +34,7 @@ schedule_interval   = 3
 log                 = false
 log_path            = /tmp/ocelot
 
+# the report path should be placed on a tmpfs partition in production
+report_path         = /tmp/ocelot
+
 readonly            = false

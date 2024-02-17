@@ -27,7 +27,7 @@ static schedule *sched;
 struct stats_t stats;
 
 const char * version() {
-    return "2.1.1";
+    return "2.1.3";
 }
 
 static void create_daemon() {
@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
             conf_arg = true;
             conf_file_path = argv[++i];
         } else if (strcmp(argv[i], "-V") == 0 || strcmp(argv[i], "--version") == 0) {
-            std::cout << "Ocelot version " << version() << std::endl;
+            std::cout << "Ocelot version " << version() << ", compiled " << __DATE__ << ' ' <<  __TIME__ << std::endl;
             return 0;
         } else {
             std::cout << "Usage: " << argv[0] << " [-v] [-c configfile] [--daemonize]" << std::endl;
@@ -146,6 +146,10 @@ int main(int argc, char **argv) {
     auto combined_logger = std::make_shared<spdlog::logger>("logger", begin(sinks), end(sinks));
     // If we don't set flush on info, the file log takes a long while to actually flush
     combined_logger->flush_on(spdlog::level::info);
+    combined_logger->info(
+        std::string("Ocelot version ") + version()
+        + std::string(", compiled ") + __DATE__ + std::string(" ") +  __TIME__
+    );
     spdlog::register_logger(combined_logger);
 
     db = new mysql(conf);

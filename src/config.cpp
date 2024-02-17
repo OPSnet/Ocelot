@@ -100,6 +100,8 @@ void config::init() {
     add("log", false);
     add("log_path", "ocelot");  // path to where to write log + name of log (don't need to put file extension)
 
+    add("report_path", "/tmp");  // path for transfer to website (should be a tmpfs in production)
+
     // Debugging
     add("readonly", false);
 }

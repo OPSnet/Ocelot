@@ -27,6 +27,7 @@ RUN cmake -Wno-dev -S /srv -B /srv/build \
         pkg-config \
     && apt-get autoremove -y \
     && apt-get clean -y \
+    && mkdir -p /tmp/ocelot \
     && mv /srv/build/ocelot /srv/ocelot \
     && mv /srv/ocelot.conf.dist /srv/ocelot.conf
 
