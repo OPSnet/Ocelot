@@ -5,17 +5,19 @@
 
 #include <string>
 
-std::string report(
-    params_type &params,
-    user_list &users_list,
-    unsigned int announce_interval,
-    unsigned int announce_jitter
-);
+// take a snapshot of the current stats
+void copy_stats(const struct stats_t *in, struct stats_t *out);
 
-// return a snapshot of jemalloc statistics
-std::string report_jemalloc_plain(const char *opts, std::string path);
+// status report
+std::string report(const uint32_t announce_interval, const uint32_t announce_jitter);
 
-// return output for a prometheus scrape
+// a snapshot of jemalloc statistics
+std::string report_jemalloc_plain(const char *opts, const std::string path);
+
+// a prometheus scrape
 std::string report_prom_stats(const char *jemalloc_stats);
+
+// user report
+std::string report_user(const user_ptr u);
 
 #endif  // SRC_REPORT_H_

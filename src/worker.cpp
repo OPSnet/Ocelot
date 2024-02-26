@@ -24,6 +24,8 @@
 #include "report.h"
 #include "user.h"
 
+std::mutex worker::client_len_mutex;
+
 //---------- Worker - does stuff with input
 worker::worker(config * conf_obj, torrent_list &torrents, user_list &users, std::vector<std::string> &_whitelist, mysql * db_obj, site_comm * sc) :
     conf(conf_obj), db(db_obj), s_comm(sc), torrents_list(torrents), users_list(users), whitelist(_whitelist), status(OPEN), reaper_active(false), randgen((std::random_device())()) {
@@ -69,9 +71,17 @@ bool worker::shutdown() {
 
 std::string worker::work(const std::string &input, std::string &ip, client_opts_t &client_opts) {
     unsigned int input_length = input.length();
+    {
+        const std::lock_guard<std::mutex> lock(worker::client_len_mutex);
+        unsigned int max_len = stats.max_client_request_len;
+        if (max_len < input_length) {
+            stats.max_client_request_len = input_length;
+        }
+    }
 
     //---------- Parse request - ugly but fast. Using substr exploded.
     if (input_length < 60) {  // Way too short to be anything useful
+        stats.http_error++;
         return error("GET string too short", client_opts);
     }
 
@@ -81,6 +91,7 @@ std::string worker::work(const std::string &input, std::string &ip, client_opts_
     std::string passkey;
     passkey.reserve(32);
     if (input[37] != '/') {
+        stats.http_error++;
         return error("Malformed announce", client_opts);
     }
 
@@ -120,7 +131,7 @@ std::string worker::work(const std::string &input, std::string &ip, client_opts_
     if (input[pos] != '?') {
         // No parameters given. Probably means we're not talking to a torrent client
         client_opts.html = true;
-        return response("Nothing to see here", client_opts);
+        return http_response("Nothing to see here", client_opts);
     }
 
     // Parse URL params
@@ -158,6 +169,7 @@ std::string worker::work(const std::string &input, std::string &ip, client_opts_
     ++pos;
 
     if (input.compare(pos, 5, "HTTP/") != 0) {
+        stats.http_error++;
         return error("Malformed HTTP request", client_opts);
     }
 
@@ -211,87 +223,147 @@ std::string worker::work(const std::string &input, std::string &ip, client_opts_
 
     if (status != OPEN) {
         return error("The tracker is temporarily unavailable.", client_opts);
-    }
-
-    if (action == INVALID) {
+    } else if (action == INVALID) {
+        stats.http_error++;
         return error("Invalid action", client_opts);
-    }
-
-    if (action == UPDATE) {
-        if (passkey == site_password) {
-            return update(params, client_opts);
-        } else {
+    } else if (action == UPDATE) {
+        if (passkey != site_password) {
+            stats.auth_error_secret++;
+            logger->error("incorrect TRACKER_SECRET received");
             return error("Authentication failure", client_opts);
         }
-    }
+        return update(params, client_opts);
+    } else if (action == REPORT) {
+        if (passkey != report_password) {
+            stats.auth_error_report++;
+            logger->error("incorrect TRACKER_REPORT received");
+            return error("Authentication failure", client_opts);
+        }
 
-    if (action == REPORT) {
-        if (passkey == report_password) {
-            if (params["get"] == "prom_stats") {
-                // exclude per-arena (a), destroyed merged (d), mutex (m) and extents (e) statistics
-                std::string jemalloc_stats(report_jemalloc_plain("adex", conf->get_str("report_path")));
-                return response(
-                    report_prom_stats(jemalloc_stats.c_str()),
-                    client_opts
-                );
-            } else if (params["jemalloc"] == "plain") {
-                return response(
-                    report_jemalloc_plain("adex", conf->get_str("report_path")),
-                    client_opts
-                );
-            } else {
-                std::lock_guard<std::mutex> ul_lock(db->user_list_mutex);
-                return response(
-                    report(params, users_list, announce_interval, conf->get_uint("announce_jitter")),
-                    client_opts
-                );
+        std::string report_action(params["get"]);
+        if (report_action == "prom_stats") {
+            // exclude per-arena (a), destroyed merged (d), mutex (m) and extents (e) statistics
+            std::string jemalloc_stats(report_jemalloc_plain("adex", conf->get_str("report_path")));
+            return http_response(
+                report_prom_stats(jemalloc_stats.c_str()),
+                client_opts
+            );
+        } else if (report_action == "stats") {
+            return http_response(
+                report(announce_interval, conf->get_uint("announce_jitter")),
+                client_opts
+            );
+        } else if (report_action == "jemalloc") {
+            return http_response(
+                report_jemalloc_plain("adex", conf->get_str("report_path")),
+                client_opts
+            );
+        } else if (report_action == "user") {
+            std::string announce_key = params["key"];
+            if (announce_key.empty()) {
+                stats.auth_error_announce_key++;
+                logger->error("user report with no announce key");
+                return error("Announce key missing", client_opts);
             }
-        } else {
-            return error("Authentication failure", client_opts);
-        }
-    }
-
-    // Either a scrape or an announce
-
-    std::unique_lock<std::mutex> ul_lock(db->user_list_mutex);
-    auto user_it = users_list.find(passkey);
-    if (user_it == users_list.end()) {
-        return error("Passkey not found", client_opts);
-    }
-    user_ptr u = user_it->second;
-    ul_lock.unlock();
-
-    if (action == ANNOUNCE) {
-        // Let's translate the infohash into something nice
-        // info_hash is a url encoded (hex) base 20 number
-        std::string info_hash_decoded = hex_decode(params["info_hash"]);
-        std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
-        auto tor = torrents_list.find(info_hash_decoded);
-        if (tor == torrents_list.end()) {
-            std::lock_guard<std::mutex> dr_lock(del_reasons_lock);
-            auto msg = del_reasons.find(info_hash_decoded);
-            if (msg != del_reasons.end()) {
-                if (msg->second.reason != -1) {
-                    return error("Unregistered torrent: " + get_del_reason(msg->second.reason), client_opts);
-                } else {
-                    return error("Unregistered torrent", client_opts);
+            user_ptr u;
+            {
+                // lock scope
+                std::lock_guard<std::mutex> ul_lock(db->user_list_mutex);
+                auto user_it = users_list.find(announce_key);
+                if (user_it == users_list.end()) {
+                    stats.auth_error_announce_key++;
+                    logger->error("user report announce key not found");
+                    return error("Announce key not found", client_opts);
                 }
+                u = user_it->second;
+            }
+            return http_response(
+                report_user(u),
+                client_opts
+            );
+        }
+
+        stats.http_error++;
+        logger->error("unrecognized report query");
+        return error("unrecognized report query", client_opts);
+    }
+
+    // Either a scrape or an announce, find the user
+    user_ptr u;
+    {
+        // lock scope
+        std::lock_guard<std::mutex> ul_lock(db->user_list_mutex);
+        auto user_it = users_list.find(passkey);
+        if (user_it == users_list.end()) {
+            stats.auth_error_announce_key++;
+            return error("Passkey not found", client_opts);
+        }
+        u = user_it->second;
+    }
+
+    if (action == SCRAPE) {
+        return scrape(infohashes, headers, client_opts);
+    }
+
+    // Let's translate the infohash into something nice
+    // info_hash is a url encoded (hex) base 20 number
+    std::string info_hash_decoded = hex_decode(params["info_hash"]);
+    std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
+    auto tor = torrents_list.find(info_hash_decoded);
+    if (tor == torrents_list.end()) {
+        std::lock_guard<std::mutex> dr_lock(del_reasons_lock);
+        auto msg = del_reasons.find(info_hash_decoded);
+        if (msg != del_reasons.end()) {
+            if (msg->second.reason != -1) {
+                return error("Unregistered torrent: " + get_del_reason(msg->second.reason), client_opts);
             } else {
                 return error("Unregistered torrent", client_opts);
             }
+        } else {
+            return error("Unregistered torrent", client_opts);
         }
-        return announce(input, tor->second, u, params, headers, ip, client_opts);
-    } else {
-        return scrape(infohashes, headers, client_opts);
     }
+    return announce(input, tor->second, u, params, headers, ip, client_opts);
+}
+
+const std::string bencode_warning(const std::string &message) {
+    return "15:warning message" + inttostr(message.length()) + ':' + message;
 }
 
 std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u, params_type &params, params_type &headers, std::string &ip, client_opts_t &client_opts) {
     cur_time = time(NULL);
 
     if (params["compact"] != "1") {
+        stats.client_error++;
         return error("Your client does not support compact announces", client_opts);
     }
+
+    params_type::const_iterator peer_id_iterator = params.find("peer_id");
+    if (peer_id_iterator == params.end()) {
+        stats.client_error++;
+        return error("No peer ID", client_opts);
+    }
+    const std::string peer_id = hex_decode(peer_id_iterator->second);
+    if (peer_id.length() != 20) {
+        stats.client_error++;
+        return error("Invalid peer ID", client_opts);
+    }
+
+    std::unique_lock<std::mutex> wl_lock(db->whitelist_mutex);
+    if (whitelist.size() > 0) {
+        bool found = false;  // Found client in whitelist?
+        for (unsigned int i = 0; i < whitelist.size(); i++) {
+            if (peer_id.compare(0, whitelist[i].length(), whitelist[i]) == 0) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            stats.client_error++;
+            return error("Your client is not on the whitelist", client_opts);
+        }
+    }
+    wl_lock.unlock();
 
     int64_t left = std::max((int64_t)0, strtoint64(params["left"]));
     int64_t uploaded = std::max((int64_t)0, strtoint64(params["uploaded"]));
@@ -310,32 +382,8 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
     bool inc_l = false, inc_s = false, dec_l = false, dec_s = false;
     userid_t userid = u->get_id();
 
-    params_type::const_iterator peer_id_iterator = params.find("peer_id");
-    if (peer_id_iterator == params.end()) {
-        return error("No peer ID", client_opts);
-    }
-    const std::string peer_id = hex_decode(peer_id_iterator->second);
-    if (peer_id.length() != 20) {
-        return error("Invalid peer ID", client_opts);
-    }
-
-    std::unique_lock<std::mutex> wl_lock(db->whitelist_mutex);
-    if (whitelist.size() > 0) {
-        bool found = false;  // Found client in whitelist?
-        for (unsigned int i = 0; i < whitelist.size(); i++) {
-            if (peer_id.compare(0, whitelist[i].length(), whitelist[i]) == 0) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            return error("Your client is not on the whitelist", client_opts);
-        }
-    }
-    wl_lock.unlock();
-
-    std::stringstream peer_key_stream;
     // "Randomize" the element order in the peer map by prefixing with a peer id byte
+    std::stringstream peer_key_stream;
     peer_key_stream << peer_id[12 + (tor.id & 7)]
         << userid  // Include user id in the key to lower chance of peer id collisions
         << peer_id;
@@ -746,7 +794,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
         output += peers;
     }
     if (invalid_ip) {
-        output += warning("Illegal character found in IP address. IPv6 is not supported");
+        output += bencode_warning("Illegal character found in IP address. IPv6 is not supported");
     }
     output += 'e';
 
@@ -757,7 +805,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
     /*if (headers["accept-encoding"].find("gzip") != std::string::npos) {
         client_opts.gzip = true;
     }*/
-    return response(output, client_opts);
+    return http_response(output, client_opts);
 }
 
 std::string worker::scrape(const std::list<std::string> &infohashes, params_type &headers, client_opts_t &client_opts) {
@@ -787,12 +835,13 @@ std::string worker::scrape(const std::list<std::string> &infohashes, params_type
     if (headers["accept-encoding"].find("gzip") != std::string::npos) {
         client_opts.gzip = true;
     }
-    return response(output, client_opts);
+    return http_response(output, client_opts);
 }
 
 // TODO: Restrict to local IPs
 std::string worker::update(params_type &params, client_opts_t &client_opts) {
-    if (params["action"] == "change_passkey") {
+    std::string action(params["action"]);
+    if (action == "change_passkey") {
         std::string oldpasskey = params["oldpasskey"];
         std::string newpasskey = params["newpasskey"];
         std::lock_guard<std::mutex> ul_lock(db->user_list_mutex);
@@ -804,7 +853,7 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
             users_list.erase(oldpasskey);
             logger->info("Changed passkey from " + oldpasskey + " to " + newpasskey + " for user " + std::to_string(u->second->get_id()));
         }
-    } else if (params["action"] == "add_torrent") {
+    } else if (action == "add_torrent") {
         torrent *t;
         std::string info_hash = params["info_hash"];
         info_hash = hex_decode(info_hash);
@@ -827,7 +876,7 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
             t->free_torrent = NEUTRAL;
         }
         logger->info("Added torrent " + std::to_string(t->id) + ". FL: " + std::to_string(t->free_torrent) + " " + params["freetorrent"]);
-    } else if (params["action"] == "update_torrent") {
+    } else if (action == "update_torrent") {
         std::string info_hash = params["info_hash"];
         info_hash = hex_decode(info_hash);
         freetype fl;
@@ -846,7 +895,7 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
         } else {
             logger->warn("Failed to find torrent " + std::string(info_hash) + " to FL " + std::to_string(fl));
         }
-    } else if (params["action"] == "update_torrents") {
+    } else if (action == "update_torrents") {
         // Each decoded infohash is exactly 20 characters long.
         std::string info_hashes = params["info_hashes"];
         info_hashes = hex_decode(info_hashes);
@@ -869,7 +918,7 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
                 logger->warn("Failed to find torrent " + info_hash + " to FL " + std::to_string(fl));
             }
         }
-    } else if (params["action"] == "add_token") {
+    } else if (action == "add_token") {
         std::string info_hash = hex_decode(params["info_hash"]);
         int userid = atoi(params["userid"].c_str());
         std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
@@ -879,7 +928,7 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
         } else {
             logger->warn("Failed to find torrent to add a token for user " + std::to_string(userid));
         }
-    } else if (params["action"] == "remove_token") {
+    } else if (action == "remove_token") {
         std::string info_hash = hex_decode(params["info_hash"]);
         int userid = atoi(params["userid"].c_str());
         std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
@@ -889,7 +938,7 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
         } else {
             logger->warn("Failed to find torrent " + info_hash + " to remove token for user " + std::to_string(userid));
         }
-    } else if (params["action"] == "delete_torrent") {
+    } else if (action == "delete_torrent") {
         std::string info_hash = params["info_hash"];
         info_hash = hex_decode(info_hash);
         int reason = -1;
@@ -918,7 +967,7 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
         } else {
             logger->warn("Failed to find torrent " + bintohex(info_hash) + " to delete ");
         }
-    } else if (params["action"] == "add_user") {
+    } else if (action == "add_user") {
         std::string passkey = params["passkey"];
         userid_t userid = strtoint32(params["id"]);
         std::lock_guard<std::mutex> ul_lock(db->user_list_mutex);
@@ -932,7 +981,7 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
             logger->warn("Tried to add already known user " + passkey + " with id " + std::to_string(userid));
             u->second->set_deleted(false);
         }
-    } else if (params["action"] == "remove_user") {
+    } else if (action == "remove_user") {
         std::string passkey = params["passkey"];
         std::lock_guard<std::mutex> ul_lock(db->user_list_mutex);
         auto u = users_list.find(passkey);
@@ -941,7 +990,7 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
             u->second->set_deleted(true);
             users_list.erase(u);
         }
-    } else if (params["action"] == "remove_users") {
+    } else if (action == "remove_users") {
         // Each passkey is exactly 32 characters long.
         std::string passkeys = params["passkeys"];
         std::lock_guard<std::mutex> ul_lock(db->user_list_mutex);
@@ -954,7 +1003,7 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
                 users_list.erase(passkey);
             }
         }
-    } else if (params["action"] == "update_user") {
+    } else if (action == "update_user") {
         std::string passkey = params["passkey"];
         bool can_leech = true;
         bool protect_ip = false;
@@ -973,12 +1022,12 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
             i->second->set_leechstatus(can_leech);
             logger->info("Updated user " + passkey);
         }
-    } else if (params["action"] == "add_whitelist") {
+    } else if (action == "add_whitelist") {
         std::string peer_id = params["peer_id"];
         std::lock_guard<std::mutex> wl_lock(db->whitelist_mutex);
         whitelist.push_back(peer_id);
         logger->info("Whitelisted " + peer_id);
-    } else if (params["action"] == "remove_whitelist") {
+    } else if (action == "remove_whitelist") {
         std::string peer_id = params["peer_id"];
         std::lock_guard<std::mutex> wl_lock(db->whitelist_mutex);
         for (unsigned int i = 0; i < whitelist.size(); i++) {
@@ -988,7 +1037,7 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
             }
         }
         logger->info("De-whitelisted " + peer_id);
-    } else if (params["action"] == "edit_whitelist") {
+    } else if (action == "edit_whitelist") {
         std::string new_peer_id = params["new_peer_id"];
         std::string old_peer_id = params["old_peer_id"];
         std::lock_guard<std::mutex> wl_lock(db->whitelist_mutex);
@@ -1000,17 +1049,17 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
         }
         whitelist.push_back(new_peer_id);
         logger->info("Edited whitelist item from " + old_peer_id + " to " + new_peer_id);
-    } else if (params["action"] == "update_announce_interval") {
+    } else if (action == "update_announce_interval") {
         const std::string interval = params["new_announce_interval"];
         conf->set("announce_interval", interval);
         announce_interval = conf->get_uint("announce_interval");
         logger->info("Edited announce interval to " + std::to_string(announce_interval));
-    } else if (params["action"] == "update_announce_jitter") {
+    } else if (action == "update_announce_jitter") {
         const std::string new_jitter = params["new_announce_jitter"];
         conf->set("announce_jitter", new_jitter);
         jitter = std::uniform_int_distribution<int>(0, conf->get_uint("announce_jitter"));
         logger->info("Edited announce jitter to " + std::to_string(conf->get_uint("announce_jitter")));
-    } else if (params["action"] == "info_torrent") {
+    } else if (action == "info_torrent") {
         std::stringstream output;
         std::string info_hash_hex = params["info_hash"];
         std::string info_hash = hex_decode(info_hash_hex);
@@ -1024,9 +1073,9 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
             output << ",\"fail\":1";
         }
         output << "}\n";
-        return response(output.str(), client_opts);
+        return http_response(output.str(), client_opts);
     }
-    return response("success", client_opts);
+    return http_response("success", client_opts);
 }
 
 peer_list::iterator worker::add_peer(peer_list &peer_list, const std::string &peer_key) {

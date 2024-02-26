@@ -57,7 +57,7 @@ int dump_jemalloc(const char *filename, const char *opts) {
     return result;
 }
 
-std::string report_jemalloc_plain(const char *opts, std::string path) {
+std::string report_jemalloc_plain(const char *opts, const std::string path) {
     std::string filename(path + "/jemalloc.json." + std::to_string(pthread_self()));
     if (dump_jemalloc(filename.c_str(), opts) != 0) {
         // return an empty string if something went bananas
@@ -78,140 +78,172 @@ std::string report_jemalloc_plain(const char *opts, std::string path) {
     return output.str();
 }
 
-std::string report(params_type &params, user_list &users_list, unsigned int announce_interval, unsigned int announce_jitter) {
-    std::stringstream output;
-    std::string action = params["get"];
-    if (action == "stats") {
-        time_t uptime = time(NULL) - stats.start_time;
-        int up_d = uptime / 86400;
-        uptime -= up_d * 86400;
-        int up_h = uptime / 3600;
-        uptime -= up_h * 3600;
-        int up_m = uptime / 60;
-        int up_s = uptime - up_m * 60;
+#define ITEM_BYTE(LABEL,    VALUE) "\"" LABEL "\":{\"type\":\"byte\",\"value\":" << VALUE << "}"
+#define ITEM_ELAPSED(LABEL, VALUE) "\"" LABEL "\":{\"type\":\"elapsed\",\"value\":" << VALUE << "}"
+#define ITEM_NUM(LABEL,     VALUE) "\"" LABEL "\":{\"type\":\"number\",\"value\":" << VALUE << "}"
+#define ITEM_STR(LABEL,     VALUE) "\"" LABEL "\":{\"type\":\"string\",\"value\":\"" VALUE "\"}"
+#define ITEM_VERSION(LABEL, MAJ, MIN, BUGFIX) "\"" LABEL "\":{\"type\":\"string\",\"value\":\"" << MAJ << "." << MIN << "." << BUGFIX << "\"}"
 
-        output << "Uptime: " << up_d << " days, "
-                << (up_h < 10 ? "0" : "") << inttostr(up_h) << ':'
-                << (up_m < 10 ? "0" : "") << inttostr(up_m) << ':'
-                << (up_s < 10 ? "0" : "") << inttostr(up_s) << "\n"
-            << "version: " << version() << "\n"
-            << "jemalloc_version: " << JEMALLOC_VERSION_MAJOR << '.' << JEMALLOC_VERSION_MINOR << '.' << JEMALLOC_VERSION_BUGFIX << "\n"
-            << stats.opened_connections << " connections opened\n"
-            << stats.open_connections << " open connections\n"
-            << stats.connection_rate << " connections/s\n"
-            << stats.requests << " requests handled\n"
-            << stats.request_rate << " requests/s\n"
-            << stats.succ_announcements << " successful announcements\n"
-            << (stats.announcements - stats.succ_announcements) << " failed announcements\n"
-            << stats.scrapes << " scrapes\n"
-            << stats.leechers << " leechers tracked\n"
-            << stats.seeders << " seeders tracked\n"
-            << stats.user_queue_size << " items in user queue\n"
-            << stats.torrent_queue_size << " items in torrent queue\n"
-            << stats.peer_queue_size << " items in peer queue\n"
-            << stats.snatch_queue_size << " items in snatch queue\n"
-            << stats.token_queue_size << " items in token queue\n"
-            << stats.bytes_read << " bytes read\n"
-            << stats.bytes_written << " bytes written\n"
-            << announce_interval << " announce interval\n"
-            << announce_jitter << " announce jitter\n"
+std::string report(const uint32_t announce_interval, const uint32_t announce_jitter) {
+    std::ostringstream output;
+    output << "{"
+        << ITEM_STR("version", OCELOT_VERSION) << ','
+        << ITEM_VERSION("jemalloc version", JEMALLOC_VERSION_MAJOR, JEMALLOC_VERSION_MINOR, JEMALLOC_VERSION_BUGFIX) << ','
+        << ITEM_NUM("connections opened", stats.opened_connections) << ','
+        << ITEM_NUM("open connections", stats.open_connections) << ','
+        << ITEM_NUM("peak connections", stats.peak_connections) << ','
+        << ITEM_NUM("connections/s", stats.connection_rate) << ','
+        << ITEM_NUM("requests handled", stats.requests) << ','
+        << ITEM_NUM("requests/s", stats.request_rate) << ','
+        << ITEM_NUM("successful announcements", stats.succ_announcements) << ','
+        << ITEM_NUM("failed announcements", (stats.announcements - stats.succ_announcements)) << ','
+        << ITEM_NUM("scrapes", stats.scrapes) << ','
+        << ITEM_NUM("leechers tracked", stats.leechers) << ','
+        << ITEM_NUM("seeders tracked", stats.seeders) << ','
+        << ITEM_NUM("items in user queue", stats.user_queue_size) << ','
+        << ITEM_NUM("items in torrent queue", stats.torrent_queue_size) << ','
+        << ITEM_NUM("items in peer queue", stats.peer_queue_size) << ','
+        << ITEM_NUM("items in snatch queue", stats.snatch_queue_size) << ','
+        << ITEM_NUM("items in token queue", stats.token_queue_size) << ','
+        << ITEM_BYTE("max client request length", stats.max_client_request_len) << ','
+        << ITEM_BYTE("bytes read", stats.bytes_read) << ','
+        << ITEM_BYTE("bytes written", stats.bytes_written) << ','
+        << ITEM_NUM("bad tracker secret received", stats.auth_error_secret) << ','
+        << ITEM_NUM("bad report secret received", stats.auth_error_report) << ','
+        << ITEM_NUM("bad announce key received", stats.auth_error_announce_key) << ','
+        << ITEM_NUM("bad client configuration", stats.client_error) << ','
+        << ITEM_NUM("bad http request", stats.http_error) << ','
+        << ITEM_NUM("announce interval", announce_interval) << ','
+        << ITEM_NUM("announce jitter", announce_jitter) << ','
+        << ITEM_ELAPSED("uptime", (time(NULL) - stats.start_time))
+        ;
+
+    struct rusage r;
+    if (getrusage(RUSAGE_SELF, &r) == 0) {
+        output << ','
+            << ITEM_ELAPSED("user time", r.ru_utime.tv_sec << '.' << std::setfill('0') << std::setw(6) << r.ru_utime.tv_usec) << ','
+            << ITEM_ELAPSED("system time", r.ru_stime.tv_sec << '.' << std::setfill('0') << std::setw(6) << r.ru_stime.tv_usec) << ','
+            << ITEM_BYTE("maximum resident set size", r.ru_maxrss * 1024) << ','
+            << ITEM_NUM("minor page faults", r.ru_minflt) << ','
+            << ITEM_NUM("major page faults", r.ru_majflt) << ','
+            << ITEM_NUM("blocks in", r.ru_inblock) << ','
+            << ITEM_NUM("blocks out", r.ru_oublock) << ','
+            << ITEM_NUM("voluntary context switches", r.ru_nvcsw ) << ','
+            << ITEM_NUM("involuntary context switches", r.ru_nivcsw )
             ;
-
-        struct rusage r;
-        if (getrusage(RUSAGE_SELF, &r) == 0) {
-            output << r.ru_utime.tv_sec << '.' << std::setfill('0') << std::setw(6) << r.ru_utime.tv_usec << " user time\n"
-                << r.ru_stime.tv_sec << '.' << std::setfill('0') << std::setw(6) << r.ru_stime.tv_usec << " system time\n"
-                << r.ru_maxrss << " maximum resident set size\n"
-                << r.ru_minflt << " minor page faults\n"
-                << r.ru_majflt << " major page faults\n"
-                << r.ru_inblock << " blocks in\n"
-                << r.ru_oublock << " blocks out\n"
-                << r.ru_nvcsw  << " voluntary context switches\n"
-                << r.ru_nivcsw  << " involuntary context switches\n"
-                ;
-        }
-    } else if (action == "user") {
-        std::string key = params["key"];
-        if (key.empty()) {
-            output << "Invalid action\n";
-        } else {
-            user_list::const_iterator u = users_list.find(key);
-            if (u != users_list.end()) {
-                output << "{\"id\":" << u->second->get_id()
-                    << ",\"leeching\":" << u->second->get_leeching()
-                    << ",\"seeding\":" << u->second->get_seeding()
-                    << ",\"deleted\":" << u->second->is_deleted()
-                    << ",\"protected\":" << u->second->is_protected()
-                    << ",\"can_leech\":" << u->second->can_leech()
-                    << "}" << "\n";
-                return output.str();
-            }
-        }
-    } else {
-        output << "Invalid action\n";
     }
-    output << "success";
+    output << "}\n";
     return output.str();
 }
 
 std::string report_prom_stats(const char *jemalloc) {
-    std::stringstream output;
+    std::ostringstream output;
+
     struct ocelot_alloc_info ji;
     int result = jemalloc_parse(jemalloc, &ji);
 
     output << "ocelot_uptime " << time(NULL) - stats.start_time << "\n"
-        << "ocelot_version " << version() << "\n"
-        << "ocelot_open_connections " << stats.open_connections << "\n"
-        << "ocelot_connection_rate " << stats.connection_rate << "\n"
-        << "ocelot_requests " << stats.requests << "\n"
-        << "ocelot_request_rate " << stats.request_rate << "\n"
-        << "ocelot_succ_announcements " << stats.succ_announcements << "\n"
-        << "ocelot_total_announcements " << stats.announcements << "\n"
-        << "ocelot_scrapes " << stats.scrapes << "\n"
-        << "ocelot_leechers " << stats.leechers << "\n"
-        << "ocelot_seeders " << stats.seeders << "\n"
-        << "ocelot_user_queue " << stats.user_queue_size << "\n"
-        << "ocelot_torrent_queue " << stats.torrent_queue_size << "\n"
-        << "ocelot_peer_queue " << stats.peer_queue_size << "\n"
-        << "ocelot_snatch_queue " << stats.snatch_queue_size << "\n"
-        << "ocelot_token_queue " << stats.token_queue_size << "\n"
-        << "ocelot_bytes_read " << stats.bytes_read << "\n"
-        << "ocelot_bytes_written " << stats.bytes_written << "\n"
-        << "jemalloc_version " << JEMALLOC_VERSION_MAJOR << '.' << JEMALLOC_VERSION_MINOR << '.' << JEMALLOC_VERSION_BUGFIX << "\n"
-        << "jemalloc_parse_error " << result << "\n"
-        << "jemalloc_mem_allocated " << ji.mem_allocated << "\n"
-        << "jemalloc_arena_total " << ji.nr_arena << "\n"
-        << "jemalloc_bin_small_total " << ji.nr_bin_small << "\n"
-        << "jemalloc_bin_thread_cache_total " << ji.nr_bin_tc << "\n"
-        << "jemalloc_bin_large_total " << ji.nr_bin_large << "\n"
-        << "jemalloc_memory_allocated " << ji.mem_allocated << "\n"
-        << "jemalloc_memory_active " << ji.mem_active << "\n"
-        << "jemalloc_memory_metadata " << ji.mem_metadata << "\n"
-        << "jemalloc_memory_resident " << ji.mem_resident << "\n"
-        << "jemalloc_memory_mapped " << ji.mem_mapped << "\n"
-        << "jemalloc_memory_retained " << ji.mem_retained << "\n"
-        << "jemalloc_small_allocated " << ji.small.allocated << "\n"
-        << "jemalloc_small_nmalloc_total " << ji.small.nmalloc_total << "\n"
-        << "jemalloc_small_nmalloc_rate " << ji.small.nmalloc_rate << "\n"
-        << "jemalloc_small_ndalloc_total " << ji.small.ndalloc_total << "\n"
-        << "jemalloc_small_ndalloc_rate " << ji.small.ndalloc_rate << "\n"
-        << "jemalloc_small_nrequests_total " << ji.small.nrequests_total << "\n"
-        << "jemalloc_small_nrequests_rate " << ji.small.nrequests_rate << "\n"
-        << "jemalloc_small_nfill_total " << ji.small.nfill_total << "\n"
-        << "jemalloc_small_fill_rate " << ji.small.nfill_rate << "\n"
-        << "jemalloc_small_nflush_total " << ji.small.nflush_total << "\n"
-        << "jemalloc_small_nflush_rate " << ji.small.nflush_rate << "\n"
-        << "jemalloc_large_allocated " << ji.large.allocated << "\n"
-        << "jemalloc_large_nmalloc_total " << ji.large.nmalloc_total << "\n"
-        << "jemalloc_large_nmalloc_rate " << ji.large.nmalloc_rate << "\n"
-        << "jemalloc_large_ndalloc_total " << ji.large.ndalloc_total << "\n"
-        << "jemalloc_large_ndalloc_rate " << ji.large.ndalloc_rate << "\n"
-        << "jemalloc_large_nrequests_total " << ji.large.nrequests_total << "\n"
-        << "jemalloc_large_nrequests_rate " << ji.large.nrequests_rate << "\n"
-        << "jemalloc_large_nfill_total " << ji.large.nfill_total << "\n"
-        << "jemalloc_large_fill_rate " << ji.large.nfill_rate << "\n"
-        << "jemalloc_large_nflush_total " << ji.large.nflush_total << "\n"
-        << "jemalloc_large_nflush_rate " << ji.large.nflush_rate << "\n"
+        "ocelot_version " << OCELOT_VERSION_MAJOR
+            << std::setfill('0') << std::setw(3) << OCELOT_VERSION_MINOR
+            << std::setfill('0') << std::setw(3) << OCELOT_VERSION_BUGFIX
+            << std::setfill('0') << std::setw(3) << OCELOT_VERSION_NREV << "\n"
+        "jemalloc_version " << JEMALLOC_VERSION_MAJOR
+            << std::setfill('0') << std::setw(3) << JEMALLOC_VERSION_MINOR
+            << std::setfill('0') << std::setw(3) << JEMALLOC_VERSION_BUGFIX << "\n"
+        "ocelot_open_connections " << stats.open_connections << "\n"
+
+        "#TYPE ocelot_peak_connections counter\n"
+        "ocelot_peak_connections "    << stats.peak_connections << "\n"
+        "ocelot_connection_rate "     << stats.connection_rate << "\n"
+        "ocelot_requests "            << stats.requests << "\n"
+        "ocelot_request_rate "        << stats.request_rate << "\n"
+        "ocelot_succ_announcements "  << stats.succ_announcements << "\n"
+        "ocelot_total_announcements " << stats.announcements << "\n"
+        "ocelot_scrapes "             << stats.scrapes << "\n"
+        "ocelot_leechers "            << stats.leechers << "\n"
+        "ocelot_seeders "             << stats.seeders << "\n"
+        "ocelot_user_queue "          << stats.user_queue_size << "\n"
+        "ocelot_torrent_queue "       << stats.torrent_queue_size << "\n"
+        "ocelot_peer_queue "          << stats.peer_queue_size << "\n"
+        "ocelot_snatch_queue "        << stats.snatch_queue_size << "\n"
+        "ocelot_token_queue "         << stats.token_queue_size << "\n"
+        "ocelot_bytes_read "          << stats.bytes_read << "\n"
+        "ocelot_bytes_written "       << stats.bytes_written << "\n"
+
+        "#TYPE ocelot_max_client_request_len counter\n"
+        "ocelot_max_client_request_len " << stats.max_client_request_len << "\n"
+
+        "#TYPE ocelot_error counter counter\n"
+        "ocelot_error{kind=\"secret\"} "         << stats.auth_error_secret << "\n"
+        "ocelot_error{kind=\"report\"} "         << stats.auth_error_report << "\n"
+        "ocelot_error{kind=\"announce\"} "       << stats.auth_error_announce_key << "\n"
+        "ocelot_error{kind=\"client\"} "         << stats.client_error << "\n"
+        "ocelot_error{kind=\"http\"} "           << stats.http_error << "\n"
+        "ocelot_error{kind=\"jemalloc_parse\"} " << result << "\n"
+
+        "#TYPE jemalloc_arena_total counter\n"
+        "jemalloc_arena_total " << ji.nr_arena << "\n"
+
+        "#TYPE jemalloc_bin_total counter\n"
+        "jemalloc_bin_total{bin=\"small\"} "        << ji.nr_bin_small << "\n"
+        "jemalloc_bin_total{bin=\"thread_cache\"} " << ji.nr_bin_tc << "\n"
+        "jemalloc_bin_total{bin=\"large\"} "        << ji.nr_bin_large << "\n"
+
+        "#TYPE jemalloc_allocated counter\n"
+        "jemalloc_allocated{bucket=\"small\"} " << ji.small.allocated << "\n"
+        "jemalloc_allocated{bucket=\"large\"} " << ji.large.allocated << "\n"
+
+        "#TYPE jemalloc_nmalloc_total counter\n"
+        "jemalloc_nmalloc_total{bucket=\"small\"} " << ji.small.nmalloc_total << "\n"
+        "jemalloc_nmalloc_total{bucket=\"large\"} " << ji.large.nmalloc_total << "\n"
+
+        "#TYPE jemalloc_ndalloc_total counter\n"
+        "jemalloc_ndalloc_total{bucket=\"small\"} " << ji.small.ndalloc_total << "\n"
+        "jemalloc_ndalloc_total{bucket=\"large\"} " << ji.large.ndalloc_total << "\n"
+
+        "#TYPE jemalloc_nrequests_total counter\n"
+        "jemalloc_nrequests_total{bucket=\"small\"} " << ji.small.nrequests_total << "\n"
+        "jemalloc_nrequests_total{bucket=\"large\"} " << ji.large.nrequests_total << "\n"
+
+        "#TYPE jemalloc_nfill_total counter\n"
+        "jemalloc_nfill_total{bucket=\"small\"} " << ji.small.nfill_total << "\n"
+        "jemalloc_nfill_total{bucket=\"large\"} " << ji.large.nfill_total << "\n"
+
+        "#TYPE jemalloc_nflush_total counter\n"
+        "jemalloc_nflush_total{bucket=\"small\"} " << ji.small.nflush_total << "\n"
+        "jemalloc_nflush_total{bucket=\"large\"} " << ji.large.nflush_total << "\n"
+
+        "#TYPE jemalloc_nflush_total gauge\n"
+        "jemalloc_memory{global=\"allocated\"} " << ji.mem_allocated << "\n"
+        "jemalloc_memory{global=\"active\"} "    << ji.mem_active << "\n"
+        "jemalloc_memory{global=\"metadata\"} "  << ji.mem_metadata << "\n"
+        "jemalloc_memory{global=\"resident\"} "  << ji.mem_resident << "\n"
+        "jemalloc_memory{global=\"mapped\"} "   << ji.mem_mapped << "\n"
+        "jemalloc_memory{global=\"retained\"} "  << ji.mem_retained << "\n"
+
+        "#TYPE jemalloc_nflush_rate gauge\n"
+        "jemalloc_allocated{bucket=\"small\"} " << ji.small.allocated << "\n"
+        "jemalloc_allocated{bucket=\"large\"} " << ji.large.allocated << "\n"
+
+        "#TYPE jemalloc_nflush_rate gauge\n"
+        "jemalloc_nmalloc_rate{bucket=\"small\"} " << ji.small.nmalloc_rate << "\n"
+        "jemalloc_nmalloc_rate{bucket=\"large\"} " << ji.large.nmalloc_rate << "\n"
+
+        "#TYPE jemalloc_nflush_total gauge\n"
+        "jemalloc_ndalloc_rate{bucket=\"small\"} " << ji.small.ndalloc_rate << "\n"
+        "jemalloc_ndalloc_rate{bucket=\"large\"} " << ji.large.ndalloc_rate << "\n"
+
+        "#TYPE jemalloc_nflush_rate gauge\n"
+        "jemalloc_nrequests_rate{bucket=\"small\"} " << ji.small.nrequests_rate << "\n"
+        "jemalloc_nrequests_rate{bucket=\"large\"} " << ji.large.nrequests_rate << "\n"
+
+        "#TYPE jemalloc_nflush_rate gauge\n"
+        "jemalloc_fill_rate{bucket=\"small\"} " << ji.small.nfill_rate << "\n"
+        "jemalloc_fill_rate{bucket=\"large\"} " << ji.large.nfill_rate << "\n"
+
+        "#TYPE jemalloc_nflush_rate gauge\n"
+        "jemalloc_nflush_rate{bucket=\"small\"} " << ji.small.nflush_rate << "\n"
+        "jemalloc_nflush_rate{bucket=\"large\"} " << ji.large.nflush_rate << "\n"
         ;
 
     struct rusage r;
@@ -221,12 +253,25 @@ std::string report_prom_stats(const char *jemalloc) {
             "ocelot_max_rss " << r.ru_maxrss << "\n"
             "ocelot_minor_fault " << r.ru_minflt << "\n"
             "ocelot_major_fault " << r.ru_majflt << "\n"
-            "ocelot_blk_in " << r.ru_inblock << "\n"
-            "ocelot_blk_out " << r.ru_oublock << "\n"
+            "#TYPE ocelot_block counter\n"
+            "ocelot_block{op=\"in\"} " << r.ru_inblock << "\n"
+            "ocelot_block{op=\"out\"} " << r.ru_oublock << "\n"
             "ocelot_nvcsw " << r.ru_nvcsw  << "\n"
             "ocelot_nivcsw " << r.ru_nivcsw  << "\n"
             ;
     }
     output << '#';
+    return output.str();
+}
+
+std::string report_user(const user_ptr u) {
+    std::ostringstream output;
+    output << "{\"id\":"     << u->get_id()
+        << ",\"leeching\":"  << u->get_leeching()
+        << ",\"seeding\":"   << u->get_seeding()
+        << ",\"deleted\":"   << u->is_deleted()
+        << ",\"protected\":" << u->is_protected()
+        << ",\"can_leech\":" << u->can_leech()
+        << "}\n";
     return output.str();
 }

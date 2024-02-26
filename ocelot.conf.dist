@@ -37,4 +37,6 @@ log_path            = /tmp/ocelot
 # the report path should be placed on a tmpfs partition in production
 report_path         = /tmp/ocelot
 
+# set to true if prevent peer data from being zeroed out on startup
+# useful to test a new version alongside an instance running in production
 readonly            = false

@@ -12,6 +12,8 @@
 #include "response.h"
 #include "events.h"
 
+std::mutex peak_open_mutex;
+
 // Define the connection mother (first half) and connection middlemen (second half)
 
 //---------- Connection mother - spawns middlemen and lets them deal with the connection
@@ -119,7 +121,13 @@ void connection_mother::handle_connect(ev::io &watcher, int events_flags) {
     // Spawn a new middleman
     if (stats.open_connections < max_middlemen) {
         stats.opened_connections++;
-        stats.open_connections++;
+        {
+            const std::lock_guard<std::mutex> lock(peak_open_mutex);
+            unsigned int current_open = stats.open_connections++;
+            if (stats.peak_connections < current_open) {
+                stats.peak_connections = current_open;
+            }
+        }
         new connection_middleman(listen_socket, work, this);
     }
 }

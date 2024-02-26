@@ -26,10 +26,6 @@ static schedule *sched;
 
 struct stats_t stats;
 
-const char * version() {
-    return "2.1.3";
-}
-
 static void create_daemon() {
     pid_t pid;
 
@@ -113,7 +109,8 @@ int main(int argc, char **argv) {
             conf_arg = true;
             conf_file_path = argv[++i];
         } else if (strcmp(argv[i], "-V") == 0 || strcmp(argv[i], "--version") == 0) {
-            std::cout << "Ocelot version " << version() << ", compiled " << __DATE__ << ' ' <<  __TIME__ << std::endl;
+            // preprocessor concatenation
+            std::cout << "Ocelot version " OCELOT_VERSION ", compiled " __DATE__ " " __TIME__ << std::endl;
             return 0;
         } else {
             std::cout << "Usage: " << argv[0] << " [-v] [-c configfile] [--daemonize]" << std::endl;
@@ -147,8 +144,7 @@ int main(int argc, char **argv) {
     // If we don't set flush on info, the file log takes a long while to actually flush
     combined_logger->flush_on(spdlog::level::info);
     combined_logger->info(
-        std::string("Ocelot version ") + version()
-        + std::string(", compiled ") + __DATE__ + std::string(" ") +  __TIME__
+        "Ocelot version " OCELOT_VERSION ", compiled " __DATE__ " "  __TIME__
     );
     spdlog::register_logger(combined_logger);
 
@@ -171,17 +167,29 @@ int main(int argc, char **argv) {
     db->load_whitelist(whitelist);
 
     stats.open_connections = 0;
+    stats.peak_connections = 0;
     stats.opened_connections = 0;
     stats.connection_rate = 0;
     stats.requests = 0;
     stats.request_rate = 0;
     stats.leechers = 0;
     stats.seeders = 0;
+    stats.user_queue_size = 0;
+    stats.torrent_queue_size = 0;
+    stats.peer_queue_size = 0;
+    stats.snatch_queue_size = 0;
+    stats.token_queue_size = 0;
+    stats.max_client_request_len = 0;
     stats.announcements = 0;
     stats.succ_announcements = 0;
     stats.scrapes = 0;
     stats.bytes_read = 0;
     stats.bytes_written = 0;
+    stats.auth_error_secret = 0;
+    stats.auth_error_report = 0;
+    stats.auth_error_announce_key = 0;
+    stats.client_error = 0;
+    stats.http_error = 0;
     stats.start_time = time(NULL);
 
     // Create worker object, which handles announces and scrapes and all that jazz

@@ -34,6 +34,7 @@ class worker {
     std::shared_ptr<spdlog::logger> logger;
     std::mt19937 randgen;
     std::uniform_int_distribution<int> jitter;
+    static std::mutex client_len_mutex;
 
     unsigned int announce_interval;
     unsigned int del_reason_lifetime;

@@ -10,7 +10,23 @@
 #include "misc_functions.h"
 #include "response.h"
 
-const std::string response(const std::string &body, client_opts_t &client_opts) {
+const std::string http_head(size_t content_length, client_opts_t &client_opts) {
+    const std::string content_type = client_opts.html ? "text/html" : "text/plain";
+
+    // rely on preprocessor string concatenation
+    std::string head = "HTTP/1.1 200 OK\r\nServer: Ocelot " OCELOT_VERSION "\r\n"
+        "Content-Type: " + content_type + "\r\n"
+        "Content-Length: " + inttostr(content_length) + "\r\n";
+    if (client_opts.gzip) {
+        head += "Content-Encoding: gzip\r\n";
+    }
+    if (client_opts.http_close) {
+        head += "Connection: Close\r\n";
+    }
+    return head + "\r\n";
+}
+
+const std::string http_response(const std::string &body, client_opts_t &client_opts) {
     std::string out;
     bool processed = false;
     if (client_opts.html) {
@@ -28,29 +44,15 @@ const std::string response(const std::string &body, client_opts_t &client_opts) 
         processed = true;
     }
     if (processed) {
-        return response_head(out.length(), client_opts) + out;
+        return http_head(out.length(), client_opts) + out;
     }
-    return response_head(body.length(), client_opts) + body;
+    return http_head(body.length(), client_opts) + body;
 }
 
-const std::string response_head(size_t content_length, client_opts_t &client_opts) {
-    const std::string content_type = client_opts.html ? "text/html" : "text/plain";
-    std::string head = "HTTP/1.1 200 OK\r\nServer: Ocelot 1.0";
-    head += "\r\nContent-Type: " + content_type;
-    if (client_opts.gzip) {
-        head += "\r\nContent-Encoding: gzip";
-    }
-    if (client_opts.http_close) {
-        head += "\r\nConnection: Close";
-    }
-    head += "\r\nContent-Length: " + inttostr(content_length) + "\r\n\r\n";
-    return head;
-}
-
-const std::string error(const std::string &err, client_opts_t &client_opts) {
-    return response("d14:failure reason" + inttostr(err.length()) + ':' + err + "12:min intervali5400e8:intervali5400ee", client_opts);
-}
-
-const std::string warning(const std::string &msg) {
-    return "15:warning message" + inttostr(msg.length()) + ':' + msg;
+const std::string error(const std::string &message, client_opts_t &client_opts) {
+    return http_response(
+        "d14:failure reason" + inttostr(message.length()) + ':' + message
+            + "12:min intervali5400e8:intervali5400ee",
+        client_opts
+    );
 }

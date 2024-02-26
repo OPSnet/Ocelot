@@ -69,6 +69,10 @@ docker run -v $(pwd)/ocelot.conf:/srv/ocelot.conf ocelot
 * `-c <path/to/ocelot.conf>` - Path to config file. If unspecified, the current working directory is used.
 * `-v` - Print queue status every time a flush is initiated.
 
+You can run a test ocelot daemon alongside a production daemon by specifying
+a separate configuration file, and setting `readonly = true`. This will
+prevent the database peer tables from being reset.
+
 ### Signals
 
 * `SIGHUP` - Reload config

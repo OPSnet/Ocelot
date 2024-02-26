@@ -126,11 +126,8 @@ small:                         247840          131452         0          129036 
 large:                         290816             815         0             808         0             971         0             815         0            2351         0
 total:                         538656          132267         0          129844         0   
     */
-    if (!(in = strstr(in, "allocated         nmalloc   (#/sec)         ndalloc   (#/sec)"))) {
+    if (!(in = strstr(in, "(#/sec)\nsmall:"))) {
         return 30;
-    }
-    if (!(in = strstr(in, "\nsmall:"))) {
-        return 31;
     }
 
     if (!(in = parse_sz(in, " ", &out->small.allocated))) {

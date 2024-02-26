@@ -3,6 +3,12 @@
 
 // Copyright [2017-2024] Orpheus
 
+#define OCELOT_VERSION_MAJOR 2
+#define OCELOT_VERSION_MINOR 1
+#define OCELOT_VERSION_BUGFIX 3
+#define OCELOT_VERSION_NREV 0
+#define OCELOT_VERSION "2.1.3"
+
 #include <time.h>
 
 #include <string>
@@ -94,6 +100,7 @@ typedef std::unordered_map<std::string, std::string> params_type;
 
 struct stats_t {
     std::atomic<uint32_t> open_connections;
+    std::atomic<uint32_t> peak_connections;
     std::atomic<uint64_t> opened_connections;
     std::atomic<uint64_t> connection_rate;
     std::atomic<uint32_t> leechers;
@@ -103,6 +110,7 @@ struct stats_t {
     std::atomic<uint32_t> peer_queue_size;
     std::atomic<uint32_t> snatch_queue_size;
     std::atomic<uint32_t> token_queue_size;
+    std::atomic<uint32_t> max_client_request_len;
     std::atomic<uint64_t> requests;
     std::atomic<uint64_t> request_rate;
     std::atomic<uint64_t> announcements;
@@ -110,6 +118,11 @@ struct stats_t {
     std::atomic<uint64_t> scrapes;
     std::atomic<uint64_t> bytes_read;
     std::atomic<uint64_t> bytes_written;
+    std::atomic<uint64_t> auth_error_secret;
+    std::atomic<uint64_t> auth_error_report;
+    std::atomic<uint64_t> auth_error_announce_key;
+    std::atomic<uint64_t> client_error;
+    std::atomic<uint64_t> http_error;
     time_t start_time;
 };
 extern struct stats_t stats;
